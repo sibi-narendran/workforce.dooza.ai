@@ -1,0 +1,22 @@
+---
+alwaysApply: true
+---
+# Code Maintenance Guidelines
+
+## ✅ Do
+
+- **Plan architecture first** — Design the structure before writing code
+- **Research best practices** — Find and follow industry-standard patterns
+- **Read documentation** — Never assume how APIs or libraries work
+- **Study the codebase** — Read existing code thoroughly before adding new code
+- **Write maintainable code** — Prioritize long-term code health over quick fixes
+- **Ask when uncertain** — Clarify before breaking any of these guidelines
+
+## ❌ Don't
+
+- **don't Introduce technical debt** — Avoid shortcuts that compromise future maintainability
+- **don't Make assumptions** — Don't guess how external APIs or internal systems work
+- **don't Write fragile code** — Never implement logic that works "by chance" or could break unexpectedly,
+avoid code duplicate or have multiple files working for same problem, keep best one
+- **don't Take shortcuts** — Avoid quick hacks that will cause problems later
+dont write unreliable logics, 

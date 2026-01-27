@@ -1,0 +1,3 @@
+[submodule "clawdbot"]
+	path = clawdbot
+	url = https://github.com/sibi-narendran/clawdbot.git

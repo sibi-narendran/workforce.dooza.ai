@@ -1,0 +1,16 @@
+{
+  "name": "clawed-setup",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:platform": "pnpm --filter @workforce/platform dev",
+    "dev:web": "pnpm --filter @workforce/web dev",
+    "build": "pnpm -r build",
+    "build:platform": "pnpm --filter @workforce/platform build",
+    "build:web": "pnpm --filter @workforce/web build"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

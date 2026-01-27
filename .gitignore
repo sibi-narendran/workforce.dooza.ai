@@ -1,0 +1,79 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+*.bun-build
+**/*.bun-build
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+**/.DS_Store
+
+# Logs
+*.log
+
+# Testing
+coverage/
+ui/playwright-report/
+ui/test-results/
+
+# Lock files (managed in clawdbot/)
+pnpm-lock.yaml
+bun.lock
+bun.lockb
+
+# macOS app build artifacts
+apps/macos/.build/
+apps/macos/.build-local/
+apps/macos/.swiftpm/
+apps/shared/ClawdbotKit/.build/
+apps/shared/ClawdbotKit/.swiftpm/
+**/ModuleCache/
+bin/
+
+# iOS build artifacts
+apps/ios/*.xcodeproj/
+apps/ios/*.xcworkspace/
+apps/ios/.swiftpm/
+apps/ios/*.xcfilelist
+apps/ios/*.ipa
+apps/ios/*.dSYM.zip
+apps/ios/*.mobileprovision
+
+# fastlane
+apps/ios/fastlane/README.md
+apps/ios/fastlane/report.xml
+apps/ios/fastlane/Preview.html
+apps/ios/fastlane/screenshots/
+apps/ios/fastlane/test_output/
+apps/ios/fastlane/logs/
+apps/ios/fastlane/.env
+
+# Vendor build artifacts
+vendor/
+.bundle.hash
+
+# Local untracked files
+.local/
+.deploy-keys
+.vercel/
+.vite/
+
+# Screenshots
+ui/src/ui/__screenshots__/
+
+# Local tooling
+.serena/
+Core/

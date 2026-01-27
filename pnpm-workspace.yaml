@@ -1,0 +1,6 @@
+packages:
+  - clawdbot
+  - clawdbot/ui
+  - clawdbot/extensions/*
+  - platform
+  - platform/web
