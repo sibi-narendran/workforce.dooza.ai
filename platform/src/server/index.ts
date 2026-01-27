@@ -19,12 +19,18 @@ app.use('*', prettyJSON())
 app.use(
   '*',
   cors({
-    origin: [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'https://workforce.dooza.ai',
-      /\.vercel\.app$/,  // Vercel preview deployments
-    ],
+    origin: (origin) => {
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'https://workforce.dooza.ai',
+      ]
+      // Allow Vercel and Render preview deployments
+      if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com'))) {
+        return origin
+      }
+      return allowedOrigins[0]
+    },
     credentials: true,
   })
 )
