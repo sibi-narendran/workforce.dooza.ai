@@ -71,6 +71,19 @@ vendor/
 .vercel/
 .vite/
 
+# Platform specific env files (extra protection)
+platform/.env
+platform/web/.env
+
+# Render CLI config (contains API key)
+.render/
+
+# API keys and secrets
+*.pem
+*.key
+secrets.json
+credentials.json
+
 # Screenshots
 ui/src/ui/__screenshots__/
 
