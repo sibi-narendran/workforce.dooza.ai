@@ -3,7 +3,7 @@ services:
     name: workforce-api
     runtime: node
     rootDir: platform
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm run start
     envVars:
       - key: PORT
