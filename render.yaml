@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: workforce-api
+    runtime: node
+    rootDir: platform
+    buildCommand: pnpm install && pnpm build
+    startCommand: pnpm start
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: TENANT_DATA_DIR
+        value: /data/tenants
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: DEFAULT_MODEL
+        value: google/gemini-3-pro-preview
+    disk:
+      name: tenant-data
+      mountPath: /data
+      sizeGB: 1

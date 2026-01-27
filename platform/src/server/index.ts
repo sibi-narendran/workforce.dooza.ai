@@ -19,7 +19,12 @@ app.use('*', prettyJSON())
 app.use(
   '*',
   cors({
-    origin: ['http://localhost:5173', 'http://localhost:3000', 'https://workforce.dooza.ai'],
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://workforce.dooza.ai',
+      /\.vercel\.app$/,  // Vercel preview deployments
+    ],
     credentials: true,
   })
 )
