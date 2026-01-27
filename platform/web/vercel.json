@@ -1,6 +1,0 @@
-{
-  "framework": "vite",
-  "outputDirectory": "dist",
-  "installCommand": "npm install --include=dev",
-  "buildCommand": "npx vite build"
-}
