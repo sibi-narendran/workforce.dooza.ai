@@ -13,15 +13,24 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Configuration
-SUPABASE_PROJECT="cydhvvqvgrvntzitrrwy"
+# Configuration - Load from .env or environment
+SUPABASE_PROJECT="${SUPABASE_PROJECT:-cydhvvqvgrvntzitrrwy}"
 SUPABASE_URL="https://${SUPABASE_PROJECT}.supabase.co"
-SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5ZGh2dnF2Z3J2bnR6aXRycnd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0MTQwOTQsImV4cCI6MjA4NDk5MDA5NH0.xrSUiWvNBLOhJGT_ClTPwUkQiCgd09asuRQgT1mRy7o"
-SUPABASE_SERVICE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5ZGh2dnF2Z3J2bnR6aXRycnd5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTQxNDA5NCwiZXhwIjoyMDg0OTkwMDk0fQ.Fp2_pC9mDblB_uxNq2X6utfUftWE7R5yC208xdmd9aU"
-# Password URL-encoded (! = %21)
-DATABASE_URL="postgresql://postgres.${SUPABASE_PROJECT}:zY4t%21sYpQj6m8X6@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
-OPENROUTER_API_KEY="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"
-DEFAULT_MODEL="google/gemini-3-pro-preview"
+DEFAULT_MODEL="${DEFAULT_MODEL:-google/gemini-3-pro-preview}"
+
+# Check required environment variables
+if [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERVICE_KEY" ] || [ -z "$DATABASE_URL" ] || [ -z "$OPENROUTER_API_KEY" ]; then
+  echo -e "${RED}Error: Missing required environment variables${NC}"
+  echo ""
+  echo "Please set the following in your environment or .env file:"
+  echo "  - SUPABASE_ANON_KEY"
+  echo "  - SUPABASE_SERVICE_KEY"
+  echo "  - DATABASE_URL"
+  echo "  - OPENROUTER_API_KEY"
+  echo ""
+  echo "You can create a .env file in the project root with these values."
+  exit 1
+fi
 
 cd "$(dirname "$0")"
 ROOT_DIR=$(pwd)
