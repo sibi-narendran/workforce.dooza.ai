@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server'
+import { startGatewayServer, type GatewayServer } from 'moltbot/gateway/server'
 import { app } from './server/index.js'
 import { validateEnv, env } from './lib/env.js'
 import { jobScheduler } from './jobs/scheduler.js'
@@ -8,6 +9,20 @@ try {
   validateEnv()
 } catch (error) {
   console.error('Environment validation failed:', error)
+  process.exit(1)
+}
+
+// Start embedded gateway
+let gateway: GatewayServer | null = null
+try {
+  gateway = await startGatewayServer(18789, {
+    bind: 'loopback',
+    controlUiEnabled: false,
+    openAiChatCompletionsEnabled: true,
+  })
+  console.log('[Platform] Gateway started on port 18789')
+} catch (err) {
+  console.error('[Platform] Failed to start gateway:', err)
   process.exit(1)
 }
 
@@ -56,6 +71,12 @@ async function shutdown(signal: string) {
 
   // Stop scheduler
   jobScheduler.stop()
+
+  // Close gateway
+  if (gateway) {
+    await gateway.close()
+    console.log('[Platform] Gateway closed')
+  }
 
   console.log('[Platform] Shutdown complete')
   process.exit(0)
