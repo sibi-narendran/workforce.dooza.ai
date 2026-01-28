@@ -3,7 +3,7 @@ services:
     name: workforce-api
     runtime: node
     rootDir: platform
-    buildCommand: cd ../clawdbot && npm install && npm run build && cd ../platform && npm install --include=dev && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm run start
     envVars:
       - key: PORT
