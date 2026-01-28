@@ -13,6 +13,7 @@ import { executeEmployee } from '../../employees/executor.js'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tenantManager } from '../../tenant/manager.js'
+import { logger, formatApiError } from '../../lib/logger.js'
 
 const conversationsRouter = new Hono()
 
@@ -146,8 +147,15 @@ conversationsRouter.post('/employee/:employeeId/chat', zValidator('json', chatSc
       usage: result.usage,
     })
   } catch (error) {
-    console.error('Chat error:', error)
-    return c.json({ error: 'Failed to process message' }, 500)
+    logger.error('Chat processing failed', {
+      tenantId,
+      employeeId,
+      route: '/conversations/employee/:employeeId/chat',
+    }, error instanceof Error ? error : undefined)
+
+    return c.json({
+      error: formatApiError(error, 'Failed to process message. Please try again.'),
+    }, 500)
   }
 })
 
@@ -187,6 +195,18 @@ conversationsRouter.get('/employee/:employeeId', async (c) => {
 })
 
 /**
+ * Safely parse a JSONL line, returning null for invalid JSON
+ */
+function safeParseJsonLine(line: string): unknown | null {
+  try {
+    return JSON.parse(line)
+  } catch (err) {
+    console.warn('[Conversations] Failed to parse session line:', line.slice(0, 100), err)
+    return null
+  }
+}
+
+/**
  * Get conversation messages (from clawdbot session files)
  */
 conversationsRouter.get('/:id/messages', async (c) => {
@@ -215,10 +235,13 @@ conversationsRouter.get('/:id/messages', async (c) => {
     const sessionFile = join(sessionDir, `${conversation.sessionKey}.jsonl`)
 
     const content = await readFile(sessionFile, 'utf-8')
+
+    // Safely parse each line, filtering out invalid entries
     const messages = content
       .split('\n')
       .filter((line) => line.trim())
-      .map((line) => JSON.parse(line))
+      .map(safeParseJsonLine)
+      .filter((msg): msg is NonNullable<typeof msg> => msg !== null)
 
     return c.json({
       conversation: {
@@ -230,7 +253,12 @@ conversationsRouter.get('/:id/messages', async (c) => {
       messages,
     })
   } catch (error) {
-    // Session file might not exist yet
+    // Log specific error for debugging
+    if (error instanceof Error && !error.message.includes('ENOENT')) {
+      console.error('[Conversations] Error reading session file:', error.message)
+    }
+
+    // Session file might not exist yet or is unreadable
     return c.json({
       conversation: {
         id: conversation.id,

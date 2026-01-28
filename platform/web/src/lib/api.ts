@@ -1,3 +1,5 @@
+import { useAuthStore, refreshToken } from './store'
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 interface ApiOptions {
@@ -5,26 +7,109 @@ interface ApiOptions {
   body?: unknown
   token?: string | null
   timeoutMs?: number
+  retries?: number
+  skipAuthRefresh?: boolean
 }
 
 class ApiError extends Error {
   status: number
+  isRetryable: boolean
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, isRetryable = false) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.isRetryable = isRetryable
   }
 }
 
+// Determine if an error is retryable
+function isRetryableError(status: number, errorMessage: string): boolean {
+  // Network errors (status 0) and server errors (5xx) are retryable
+  if (status === 0 || (status >= 500 && status <= 599)) {
+    return true
+  }
+  // Specific retryable status codes
+  if (status === 408 || status === 429 || status === 503) {
+    return true
+  }
+  // Check for connection-related error messages
+  const retryableMessages = ['network', 'timeout', 'econnreset', 'econnrefused', 'fetch']
+  return retryableMessages.some((msg) => errorMessage.toLowerCase().includes(msg))
+}
+
+// Sleep helper for retry delays
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
-  const { method = 'GET', body, token, timeoutMs = 120000 } = options
+  const {
+    method = 'GET',
+    body,
+    token,
+    timeoutMs = 120000,
+    retries = 2,
+    skipAuthRefresh = false,
+  } = options
+
+  let lastError: ApiError | null = null
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const result = await apiRequest<T>(endpoint, { method, body, token, timeoutMs })
+      return result
+    } catch (err) {
+      if (err instanceof ApiError) {
+        lastError = err
+
+        // Handle 401 - attempt token refresh once
+        if (err.status === 401 && !skipAuthRefresh && attempt === 0) {
+          const authState = useAuthStore.getState()
+          if (authState.session?.refreshToken) {
+            console.log('[API] Attempting token refresh after 401')
+            const newSession = await refreshToken()
+            if (newSession) {
+              // Retry with new token
+              return api<T>(endpoint, { ...options, token: newSession.accessToken, skipAuthRefresh: true })
+            }
+          }
+          // Token refresh failed or no refresh token - don't retry
+          throw err
+        }
+
+        // Check if error is retryable
+        if (!err.isRetryable || attempt === retries) {
+          throw err
+        }
+
+        // Exponential backoff: 500ms, 1000ms, 2000ms
+        const delay = 500 * Math.pow(2, attempt)
+        console.warn(`[API] Retrying ${endpoint} (attempt ${attempt + 1}/${retries}) after ${delay}ms`)
+        await sleep(delay)
+      } else {
+        throw err
+      }
+    }
+  }
+
+  throw lastError || new ApiError('Request failed after retries', 0, false)
+}
+
+async function apiRequest<T>(
+  endpoint: string,
+  options: { method: string; body?: unknown; token?: string | null; timeoutMs: number }
+): Promise<T> {
+  const { method, body, token, timeoutMs } = options
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
 
+  // Check token expiry before making request
   if (token) {
+    const authState = useAuthStore.getState()
+    if (authState.isTokenExpired()) {
+      throw new ApiError('Session expired. Please log in again.', 401, false)
+    }
     headers['Authorization'] = `Bearer ${token}`
   }
 
@@ -40,14 +125,14 @@ async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
     // Network error or timeout
     if (err instanceof Error) {
       if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-        throw new ApiError('Request timed out - the server may be busy', 408)
+        throw new ApiError('Request timed out - the server may be busy. Please try again.', 408, true)
       }
-      if (err.message.includes('fetch')) {
-        throw new ApiError('Failed to connect to server - please check your connection', 0)
+      if (err.message.includes('fetch') || err.message.includes('network')) {
+        throw new ApiError('Unable to connect to server. Please check your connection.', 0, true)
       }
-      throw new ApiError(err.message, 0)
+      throw new ApiError(err.message, 0, isRetryableError(0, err.message))
     }
-    throw new ApiError('Network error', 0)
+    throw new ApiError('Network error', 0, true)
   }
 
   // Parse response body safely
@@ -61,30 +146,36 @@ async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
     } catch {
       // JSON parse failed
       if (!response.ok) {
-        throw new ApiError(text || `Request failed (${response.status})`, response.status)
+        throw new ApiError(
+          text || `Request failed (${response.status})`,
+          response.status,
+          isRetryableError(response.status, text)
+        )
       }
-      throw new ApiError('Invalid response from server', response.status)
+      throw new ApiError('Invalid response from server', response.status, false)
     }
   } else if (text) {
     // Non-JSON response
     if (!response.ok) {
-      throw new ApiError(text, response.status)
+      throw new ApiError(text, response.status, isRetryableError(response.status, text))
     }
     data = { text }
   } else {
     // Empty response
     if (!response.ok) {
-      throw new ApiError(`Request failed (${response.status})`, response.status)
+      throw new ApiError(
+        `Request failed (${response.status})`,
+        response.status,
+        isRetryableError(response.status, '')
+      )
     }
     data = {}
   }
 
   if (!response.ok) {
     const errorData = data as { error?: string; message?: string }
-    throw new ApiError(
-      errorData.error || errorData.message || `Request failed (${response.status})`,
-      response.status
-    )
+    const errorMessage = errorData.error || errorData.message || `Request failed (${response.status})`
+    throw new ApiError(errorMessage, response.status, isRetryableError(response.status, errorMessage))
   }
 
   return data as T

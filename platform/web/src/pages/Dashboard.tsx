@@ -1,34 +1,75 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { employeesApi, jobsApi, conversationsApi, type Employee, type Job, type Conversation } from '../lib/api'
+import { employeesApi, jobsApi, conversationsApi, ApiError, type Employee, type Job, type Conversation } from '../lib/api'
 import { useAuthStore } from '../lib/store'
 import { EmployeeCard } from '../components/EmployeeCard'
 
+interface LoadingState {
+  employees: boolean
+  jobs: boolean
+  conversations: boolean
+}
+
+interface ErrorState {
+  employees: string | null
+  jobs: string | null
+  conversations: string | null
+}
+
 export function Dashboard() {
-  const { session, tenant } = useAuthStore()
+  const { session, tenant, clearAuth } = useAuthStore()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState<LoadingState>({ employees: true, jobs: true, conversations: true })
+  const [errors, setErrors] = useState<ErrorState>({ employees: null, jobs: null, conversations: null })
 
-  useEffect(() => {
+  const handleApiError = useCallback((error: unknown, type: keyof ErrorState) => {
+    if (error instanceof ApiError) {
+      // Handle auth errors - token might be expired
+      if (error.status === 401) {
+        clearAuth()
+        return
+      }
+      setErrors((prev) => ({ ...prev, [type]: error.message }))
+    } else {
+      setErrors((prev) => ({ ...prev, [type]: 'Failed to load data. Please try again.' }))
+    }
+    console.error(`Dashboard ${type} error:`, error)
+  }, [clearAuth])
+
+  const loadData = useCallback(async () => {
     if (!session?.accessToken) return
 
-    Promise.all([
-      employeesApi.list(session.accessToken),
-      jobsApi.list(session.accessToken),
-      conversationsApi.list(session.accessToken),
-    ])
-      .then(([empRes, jobRes, convRes]) => {
-        setEmployees(empRes.employees)
-        setJobs(jobRes.jobs)
-        setConversations(convRes.conversations)
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [session?.accessToken])
+    // Reset errors
+    setErrors({ employees: null, jobs: null, conversations: null })
+    setLoading({ employees: true, jobs: true, conversations: true })
 
-  if (loading) {
+    // Load each independently so one failure doesn't block others
+    employeesApi.list(session.accessToken)
+      .then((res) => setEmployees(res.employees))
+      .catch((err) => handleApiError(err, 'employees'))
+      .finally(() => setLoading((prev) => ({ ...prev, employees: false })))
+
+    jobsApi.list(session.accessToken)
+      .then((res) => setJobs(res.jobs))
+      .catch((err) => handleApiError(err, 'jobs'))
+      .finally(() => setLoading((prev) => ({ ...prev, jobs: false })))
+
+    conversationsApi.list(session.accessToken)
+      .then((res) => setConversations(res.conversations))
+      .catch((err) => handleApiError(err, 'conversations'))
+      .finally(() => setLoading((prev) => ({ ...prev, conversations: false })))
+  }, [session?.accessToken, handleApiError])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const isLoading = loading.employees || loading.jobs || loading.conversations
+  const hasAnyError = errors.employees || errors.jobs || errors.conversations
+
+  if (isLoading && !employees.length && !jobs.length) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="loading" />
@@ -47,6 +88,40 @@ export function Dashboard() {
           Here's what's happening with your AI workforce
         </p>
       </div>
+
+      {/* Error Banner */}
+      {hasAnyError && (
+        <div
+          style={{
+            padding: '12px 16px',
+            background: 'var(--danger-subtle, rgba(239, 68, 68, 0.1))',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--danger, #ef4444)',
+            fontSize: 13,
+            marginBottom: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>
+            {errors.employees || errors.jobs || errors.conversations}
+          </span>
+          <button
+            onClick={loadData}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--danger, #ef4444)',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              fontSize: 13,
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div

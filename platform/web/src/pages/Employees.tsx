@@ -1,19 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { employeesApi, type Employee, type EmployeeTemplate, type Skill, type Model } from '../lib/api'
+import { employeesApi, ApiError, type Employee, type EmployeeTemplate, type Skill, type Model } from '../lib/api'
 import { useAuthStore } from '../lib/store'
 import { EmployeeCard } from '../components/EmployeeCard'
 
 export function Employees() {
-  const { session } = useAuthStore()
+  const { session, clearAuth } = useAuthStore()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [templates, setTemplates] = useState<EmployeeTemplate[]>([])
   const [skills, setSkills] = useState<Skill[]>([])
   const [models, setModels] = useState<Model[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
     try {
       // Load employees (public endpoint - no auth required)
       const empRes = await employeesApi.list(session?.accessToken || '')
@@ -32,14 +35,23 @@ export function Employees() {
       }
     } catch (error) {
       console.error('Failed to load employees:', error)
+      if (error instanceof ApiError) {
+        if (error.status === 401) {
+          clearAuth()
+          return
+        }
+        setLoadError(error.message)
+      } else {
+        setLoadError('Failed to load employees. Please check your connection and try again.')
+      }
     } finally {
       setLoading(false)
     }
-  }
+  }, [session?.accessToken, clearAuth])
 
   useEffect(() => {
     loadData()
-  }, [session?.accessToken])
+  }, [loadData])
 
   if (loading) {
     return (
@@ -49,8 +61,58 @@ export function Employees() {
     )
   }
 
+  // Show error state with retry option
+  if (loadError && employees.length === 0) {
+    return (
+      <div style={{ padding: 32, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="card" style={{ textAlign: 'center', padding: 40, maxWidth: 400 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+          <h2 style={{ margin: '0 0 8px', color: 'var(--text-strong)' }}>Failed to Load Employees</h2>
+          <p style={{ margin: '0 0 20px', color: 'var(--muted)', fontSize: 14 }}>
+            {loadError}
+          </p>
+          <button className="btn" onClick={loadData}>
+            Try Again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ padding: 32, height: '100%', overflowY: 'auto' }}>
+      {/* Error Banner (when partial data loaded) */}
+      {loadError && employees.length > 0 && (
+        <div
+          style={{
+            padding: '12px 16px',
+            background: 'var(--danger-subtle, rgba(239, 68, 68, 0.1))',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--danger, #ef4444)',
+            fontSize: 13,
+            marginBottom: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>{loadError}</span>
+          <button
+            onClick={loadData}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--danger, #ef4444)',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              fontSize: 13,
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>

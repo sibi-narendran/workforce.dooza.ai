@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './lib/store'
 import { Layout } from './components/Layout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Login } from './pages/Login'
 import { Dashboard } from './pages/Dashboard'
 import { Employees } from './pages/Employees'
@@ -30,27 +31,78 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Dashboard />} />
-          <Route path="employees" element={<Employees />} />
-          <Route path="library" element={<Library />} />
-          <Route path="integrations" element={<Integrations />} />
-          <Route path="employees/:id" element={<EmployeeDetail />} />
-          <Route path="employees/:id/chat" element={<Chat />} />
-          <Route path="jobs" element={<Jobs />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            <Route
+              index
+              element={
+                <ErrorBoundary>
+                  <Dashboard />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="employees"
+              element={
+                <ErrorBoundary>
+                  <Employees />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="library"
+              element={
+                <ErrorBoundary>
+                  <Library />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="integrations"
+              element={
+                <ErrorBoundary>
+                  <Integrations />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="employees/:id"
+              element={
+                <ErrorBoundary>
+                  <EmployeeDetail />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="employees/:id/chat"
+              element={
+                <ErrorBoundary>
+                  <Chat />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="jobs"
+              element={
+                <ErrorBoundary>
+                  <Jobs />
+                </ErrorBoundary>
+              }
+            />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }

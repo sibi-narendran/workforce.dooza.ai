@@ -8,6 +8,7 @@ import { db } from '../../db/client.js'
 import { agentLibrary, installedAgents } from '../../db/schema.js'
 import { eq, and, sql, desc } from 'drizzle-orm'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
+import { logger, formatApiError } from '../../lib/logger.js'
 
 const libraryRouter = new Hono()
 
@@ -196,8 +197,17 @@ libraryRouter.post('/:agentId/install', zValidator('json', installSchema.optiona
       message: `${agent.name} installed successfully!`,
     }, 201)
   } catch (error) {
-    console.error('Install error:', error)
-    return c.json({ error: 'Failed to install agent' }, 500)
+    logger.error('Agent installation failed', {
+      tenantId,
+      userId: user.id,
+      agentId,
+      agentName: agent.name,
+      route: '/library/:agentId/install',
+    }, error instanceof Error ? error : undefined)
+
+    return c.json({
+      error: formatApiError(error, 'Failed to install agent. Please try again.'),
+    }, 500)
   }
 })
 

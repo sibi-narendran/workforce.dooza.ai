@@ -1,30 +1,42 @@
-import { useEffect, useState } from 'react'
-import { libraryApi, type LibraryAgent } from '../lib/api'
+import { useEffect, useState, useCallback } from 'react'
+import { libraryApi, ApiError, type LibraryAgent } from '../lib/api'
 import { useAuthStore } from '../lib/store'
 
 export function Library() {
-  const { session } = useAuthStore()
+  const { session, clearAuth } = useAuthStore()
   const [agents, setAgents] = useState<LibraryAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [installing, setInstalling] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const loadAgents = async () => {
+  const loadAgents = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
     try {
       // Pass token if available to get installed status
       const res = await libraryApi.list(session?.accessToken)
       setAgents(res.agents)
     } catch (err) {
       console.error('Failed to load library:', err)
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          clearAuth()
+          return
+        }
+        setLoadError(err.message)
+      } else {
+        setLoadError('Failed to load library. Please check your connection and try again.')
+      }
     } finally {
       setLoading(false)
     }
-  }
+  }, [session?.accessToken, clearAuth])
 
   useEffect(() => {
     loadAgents()
-  }, [session?.accessToken])
+  }, [loadAgents])
 
   const handleInstall = async (agent: LibraryAgent) => {
     if (!session?.accessToken) {
@@ -51,6 +63,24 @@ export function Library() {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="loading" />
+      </div>
+    )
+  }
+
+  // Show error state with retry option
+  if (loadError && agents.length === 0) {
+    return (
+      <div style={{ padding: 32, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="card" style={{ textAlign: 'center', padding: 40, maxWidth: 400 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+          <h2 style={{ margin: '0 0 8px', color: 'var(--text-strong)' }}>Failed to Load Library</h2>
+          <p style={{ margin: '0 0 20px', color: 'var(--muted)', fontSize: 14 }}>
+            {loadError}
+          </p>
+          <button className="btn" onClick={loadAgents}>
+            Try Again
+          </button>
+        </div>
       </div>
     )
   }
