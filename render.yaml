@@ -40,8 +40,8 @@ services:
     name: workforce-gateway
     runtime: node
     rootDir: clawdbot
-    buildCommand: npm install && npm run build
-    startCommand: node moltbot.mjs gateway run --port $PORT --bind lan
+    buildCommand: npm i -g pnpm@10 && pnpm install && pnpm build
+    startCommand: mkdir -p /opt/render/project/.moltbot && echo '{"gateway":{"mode":"local"}}' > /opt/render/project/.moltbot/moltbot.json && MOLTBOT_STATE_DIR=/opt/render/project/.moltbot node moltbot.mjs gateway run --port $PORT --bind lan
     envVars:
       - key: NODE_ENV
         value: production
