@@ -30,7 +30,7 @@ export const env = {
 
   // Clawdbot (optional, for per-tenant gateway mode)
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-  CLAWDBOT_PATH: process.env.CLAWDBOT_PATH || '../clawdbot/dist/cli.js',
+  CLAWDBOT_PATH: process.env.CLAWDBOT_PATH || '../clawdbot/dist/entry.js',
 
   // Composio (for user integrations)
   COMPOSIO_API_KEY: process.env.COMPOSIO_API_KEY,
