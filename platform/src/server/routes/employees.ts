@@ -20,6 +20,7 @@ import {
 } from '../../employees/builder.js'
 import { EMPLOYEE_TEMPLATES } from '../../employees/templates.js'
 import { syncEmployeeToClawdbot, removeEmployeeFromClawdbot } from '../../employees/sync.js'
+import { logger, formatApiError } from '../../lib/logger.js'
 
 const employeesRouter = new Hono()
 
@@ -34,71 +35,82 @@ employeesRouter.use('*', tenantDirMiddleware)
 employeesRouter.get('/', async (c) => {
   const tenantId = c.get('tenantId')
 
-  // 1. Get installed agents from library
-  const installed = await db
-    .select({
-      installed: installedAgents,
-      agent: agentLibrary,
-    })
-    .from(installedAgents)
-    .innerJoin(agentLibrary, eq(installedAgents.agentId, agentLibrary.id))
-    .where(
-      and(
-        eq(installedAgents.tenantId, tenantId),
-        eq(installedAgents.isActive, true)
+  try {
+    // 1. Get installed agents from library
+    const installed = await db
+      .select({
+        installed: installedAgents,
+        agent: agentLibrary,
+      })
+      .from(installedAgents)
+      .innerJoin(agentLibrary, eq(installedAgents.agentId, agentLibrary.id))
+      .where(
+        and(
+          eq(installedAgents.tenantId, tenantId),
+          eq(installedAgents.isActive, true)
+        )
       )
-    )
-    .orderBy(desc(installedAgents.installedAt))
+      .orderBy(desc(installedAgents.installedAt))
 
-  // 2. Get custom employees (not from library)
-  const customEmployees = await db
-    .select()
-    .from(employees)
-    .where(eq(employees.tenantId, tenantId))
+    // 2. Get custom employees (not from library)
+    const customEmployees = await db
+      .select()
+      .from(employees)
+      .where(eq(employees.tenantId, tenantId))
 
-  // 3. Combine and format
-  const allEmployees = [
-    // Installed agents
-    ...installed.map(({ installed, agent }) => ({
-      id: installed.id,
-      agentId: agent.id,
-      slug: agent.slug,
-      name: installed.customName || agent.name,
-      type: agent.slug,
-      description: agent.description,
-      emoji: agent.emoji,
-      gradient: agent.gradient,
-      category: agent.category,
-      skills: agent.skills || [],
-      model: installed.customModel || agent.defaultModel,
-      isFromLibrary: true,
-      isTemplate: false,
-      chatEnabled: true,
-      installedAt: installed.installedAt,
-      createdAt: installed.installedAt,
-    })),
-    // Custom employees
-    ...customEmployees.map((emp) => ({
-      id: emp.id,
-      agentId: null,
-      slug: null,
-      name: emp.name,
-      type: emp.type,
-      description: emp.description,
-      emoji: '🤖',
-      gradient: 'linear-gradient(135deg, #6b7280, #4b5563)',
-      category: 'custom',
-      skills: emp.skills || [],
-      model: emp.model,
-      isFromLibrary: false,
-      isTemplate: emp.isTemplate,
-      chatEnabled: true,
-      installedAt: null,
-      createdAt: emp.createdAt,
-    })),
-  ]
+    logger.debug('Employees list loaded', {
+      tenantId,
+      installedCount: installed.length,
+      customCount: customEmployees.length,
+    })
 
-  return c.json({ employees: allEmployees })
+    // 3. Combine and format
+    const allEmployees = [
+      // Installed agents
+      ...installed.map(({ installed, agent }) => ({
+        id: installed.id,
+        agentId: agent.id,
+        slug: agent.slug,
+        name: installed.customName || agent.name,
+        type: agent.slug,
+        description: agent.description,
+        emoji: agent.emoji,
+        gradient: agent.gradient,
+        category: agent.category,
+        skills: agent.skills || [],
+        model: installed.customModel || agent.defaultModel,
+        isFromLibrary: true,
+        isTemplate: false,
+        chatEnabled: true,
+        installedAt: installed.installedAt,
+        createdAt: installed.installedAt,
+      })),
+      // Custom employees
+      ...customEmployees.map((emp) => ({
+        id: emp.id,
+        agentId: null,
+        slug: null,
+        name: emp.name,
+        type: emp.type,
+        description: emp.description,
+        emoji: '🤖',
+        gradient: 'linear-gradient(135deg, #6b7280, #4b5563)',
+        category: 'custom',
+        skills: emp.skills || [],
+        model: emp.model,
+        isFromLibrary: false,
+        isTemplate: emp.isTemplate,
+        chatEnabled: true,
+        installedAt: null,
+        createdAt: emp.createdAt,
+      })),
+    ]
+
+    return c.json({ employees: allEmployees })
+  } catch (error) {
+    logger.error('Failed to list employees', { tenantId }, error instanceof Error ? error : undefined)
+    return c.json({ error: formatApiError(error, 'Failed to load employees') }, 500)
+  }
 })
 
 /**

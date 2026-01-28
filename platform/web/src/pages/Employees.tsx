@@ -15,24 +15,27 @@ export function Employees() {
   const [showCreate, setShowCreate] = useState(false)
 
   const loadData = useCallback(async () => {
+    // Require auth token - employees endpoint needs authentication
+    if (!session?.accessToken) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setLoadError('')
     try {
-      // Load employees (public endpoint - no auth required)
-      const empRes = await employeesApi.list(session?.accessToken || '')
-      setEmployees(empRes.employees)
+      // Load all data in parallel - all endpoints require auth
+      const [empRes, templatesRes, skillsRes, modelsRes] = await Promise.all([
+        employeesApi.list(session.accessToken),
+        employeesApi.templates(session.accessToken),
+        employeesApi.skills(session.accessToken),
+        employeesApi.models(session.accessToken),
+      ])
 
-      // Load templates/skills/models only if authenticated
-      if (session?.accessToken) {
-        const [templatesRes, skillsRes, modelsRes] = await Promise.all([
-          employeesApi.templates(session.accessToken),
-          employeesApi.skills(session.accessToken),
-          employeesApi.models(session.accessToken),
-        ])
-        setTemplates(templatesRes.templates)
-        setSkills(skillsRes.skills)
-        setModels(modelsRes.models)
-      }
+      setEmployees(empRes.employees)
+      setTemplates(templatesRes.templates)
+      setSkills(skillsRes.skills)
+      setModels(modelsRes.models)
     } catch (error) {
       console.error('Failed to load employees:', error)
       if (error instanceof ApiError) {
