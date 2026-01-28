@@ -1,4 +1,5 @@
 services:
+  # Platform API
   - type: web
     name: workforce-api
     runtime: node
@@ -12,6 +13,11 @@ services:
         value: /data/tenants
       - key: NODE_ENV
         value: production
+      - key: CLAWDBOT_GATEWAY_HOST
+        fromService:
+          name: workforce-gateway
+          type: web
+          property: host
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
@@ -28,3 +34,18 @@ services:
       name: tenant-data
       mountPath: /data
       sizeGB: 1
+
+  # Clawdbot Gateway
+  - type: web
+    name: workforce-gateway
+    runtime: node
+    rootDir: clawdbot
+    buildCommand: npm install && npm run build
+    startCommand: node moltbot.mjs gateway run --port $PORT --bind lan
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

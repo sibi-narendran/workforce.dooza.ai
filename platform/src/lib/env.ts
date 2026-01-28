@@ -25,7 +25,8 @@ export const env = {
   DEFAULT_MODEL: process.env.DEFAULT_MODEL || 'google/gemini-3-pro-preview',
 
   // Clawdbot Gateway
-  CLAWDBOT_GATEWAY_URL: process.env.CLAWDBOT_GATEWAY_URL || 'http://127.0.0.1:18789',
+  CLAWDBOT_GATEWAY_URL: process.env.CLAWDBOT_GATEWAY_URL ||
+    (process.env.CLAWDBOT_GATEWAY_HOST ? `https://${process.env.CLAWDBOT_GATEWAY_HOST}` : 'http://127.0.0.1:18789'),
   CLAWDBOT_HOOK_TOKEN: process.env.CLAWDBOT_HOOK_TOKEN || '',
 
   // Clawdbot (optional, for per-tenant gateway mode)
@@ -52,7 +53,7 @@ export function validateEnv() {
   if (!process.env.OPENROUTER_API_KEY) {
     console.warn('[Env] OPENROUTER_API_KEY not set - OpenRouter fallback will fail')
   }
-  if (!process.env.CLAWDBOT_GATEWAY_URL) {
-    console.warn('[Env] CLAWDBOT_GATEWAY_URL not set - using default http://127.0.0.1:18789')
+  if (!process.env.CLAWDBOT_GATEWAY_URL && !process.env.CLAWDBOT_GATEWAY_HOST) {
+    console.warn('[Env] CLAWDBOT_GATEWAY_URL/HOST not set - using default http://127.0.0.1:18789')
   }
 }
