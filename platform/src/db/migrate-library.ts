@@ -16,6 +16,7 @@ const CLAWDBOT_CONFIG_PATH = join(homedir(), '.clawdbot', 'clawdbot.json')
 const AGENT_GRADIENTS: Record<string, string> = {
   'clawd': 'linear-gradient(135deg, #ef4444, #dc2626)',
   'soshie': 'linear-gradient(135deg, #3b82f6, #2563eb)',
+  'somi': 'linear-gradient(135deg, #ec4899, #8b5cf6)',
   'researcher': 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
   'creator': 'linear-gradient(135deg, #f59e0b, #d97706)',
   'publisher': 'linear-gradient(135deg, #10b981, #059669)',
@@ -30,6 +31,7 @@ const AGENT_GRADIENTS: Record<string, string> = {
 const AGENT_CATEGORIES: Record<string, string> = {
   'clawd': 'assistant',
   'soshie': 'specialist',
+  'somi': 'social-media',
   'researcher': 'specialist',
   'creator': 'creative',
   'publisher': 'specialist',
@@ -39,6 +41,55 @@ const AGENT_CATEGORIES: Record<string, string> = {
   'code-reviewer': 'specialist',
   'project-manager': 'specialist',
 }
+
+/**
+ * Platform-specific agents (not from clawdbot.json)
+ * These are pre-built agents created for the Workforce platform
+ */
+const PLATFORM_AGENTS = [
+  {
+    slug: 'somi',
+    name: 'Somi',
+    description: 'Social media specialist — creates, schedules, and publishes content across LinkedIn, Instagram, X, and Facebook',
+    emoji: '📱',
+    gradient: AGENT_GRADIENTS['somi'],
+    category: 'social-media',
+    defaultModel: 'anthropic/claude-sonnet-4',
+    skills: [
+      'generate-post',
+      'adapt-content',
+      'get-ideas',
+      'generate-image',
+      'fetch-brand-assets',
+      'create-creative',
+      'schedule-post',
+      'publish-now',
+      'fetch-analytics',
+      'get-past-posts',
+      'get-top-performers',
+      'show-preview',
+      'show-scheduler',
+      'show-brand-picker',
+    ],
+    identityPrompt: `You are Somi, a social media specialist AI. You create, schedule, and publish content across LinkedIn, Facebook, Instagram, and X.
+
+Your tone is casual but professional, concise, confident, and action-oriented.
+
+Key behaviors:
+- Generate first, show options
+- Preview everything before posting
+- Never auto-publish — always get approval first
+- Adapt content to each platform's style
+- Learn from what works
+
+Platform knowledge:
+- LinkedIn: Professional, longer OK, minimal hashtags
+- Twitter/X: Punchy, under 280, hashtags in tweet
+- Instagram: Visual-first, hashtags in comments or caption
+- Facebook: Conversational, questions work well`,
+    isPublic: true,
+  },
+]
 
 async function createTables() {
   console.log('Creating tables...')
@@ -148,10 +199,57 @@ async function seedAgents() {
   console.log('Seeding complete!')
 }
 
+/**
+ * Seed platform-specific agents (Somi, etc.)
+ * These are pre-built agents that don't come from clawdbot.json
+ */
+async function seedPlatformAgents() {
+  console.log('Seeding platform agents...')
+
+  for (const agent of PLATFORM_AGENTS) {
+    const agentData = {
+      slug: agent.slug,
+      name: agent.name,
+      description: agent.description,
+      emoji: agent.emoji,
+      gradient: agent.gradient,
+      category: agent.category,
+      defaultModel: agent.defaultModel,
+      identityPrompt: agent.identityPrompt,
+      skills: agent.skills,
+      isPublic: agent.isPublic,
+      installCount: 0,
+    }
+
+    // Upsert - insert or update if exists
+    await db.insert(agentLibrary)
+      .values(agentData)
+      .onConflictDoUpdate({
+        target: agentLibrary.slug,
+        set: {
+          name: agentData.name,
+          description: agentData.description,
+          emoji: agentData.emoji,
+          gradient: agentData.gradient,
+          category: agentData.category,
+          defaultModel: agentData.defaultModel,
+          identityPrompt: agentData.identityPrompt,
+          skills: agentData.skills,
+          updatedAt: new Date(),
+        }
+      })
+
+    console.log(`  ✓ ${agentData.name} (${agent.slug})`)
+  }
+
+  console.log('Platform agents seeding complete!')
+}
+
 async function main() {
   try {
     await createTables()
     await seedAgents()
+    await seedPlatformAgents()
     console.log('\n✅ Migration complete!')
     process.exit(0)
   } catch (error) {
