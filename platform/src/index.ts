@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server'
 import { app } from './server/index.js'
 import { validateEnv, env } from './lib/env.js'
 import { jobScheduler } from './jobs/scheduler.js'
+import { stopAllGateways } from './tenant/gateway-manager.js'
 
 // Validate environment on startup
 try {
@@ -56,6 +57,9 @@ async function shutdown(signal: string) {
 
   // Stop scheduler
   jobScheduler.stop()
+
+  // Stop all per-tenant gateways
+  stopAllGateways()
 
   console.log('[Platform] Shutdown complete')
   process.exit(0)

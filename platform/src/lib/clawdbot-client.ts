@@ -1,6 +1,6 @@
 import { env } from './env.js'
 
-const GATEWAY_URL = env.CLAWDBOT_GATEWAY_URL
+const DEFAULT_GATEWAY_URL = env.CLAWDBOT_GATEWAY_URL
 const HOOK_TOKEN = env.CLAWDBOT_HOOK_TOKEN
 
 export interface GatewayRequest {
@@ -11,6 +11,7 @@ export interface GatewayRequest {
   deliver?: boolean
   timeoutSeconds?: number
   tools?: GatewayTool[]
+  gatewayUrl?: string  // Optional: use per-tenant gateway URL
 }
 
 export interface GatewayTool {
@@ -37,7 +38,8 @@ export interface GatewayResponse {
  * This provides a synchronous response with the agent's output.
  */
 export async function callGatewayHook(req: GatewayRequest): Promise<GatewayResponse> {
-  const url = `${GATEWAY_URL}/v1/chat/completions`
+  const gatewayUrl = req.gatewayUrl || DEFAULT_GATEWAY_URL
+  const url = `${gatewayUrl}/v1/chat/completions`
 
   try {
     const response = await fetch(url, {
@@ -113,12 +115,13 @@ export async function callGatewayHook(req: GatewayRequest): Promise<GatewayRespo
 }
 
 /**
- * Check if the gateway is available
+ * Check if a gateway is available
  */
-export async function checkGatewayHealth(): Promise<boolean> {
+export async function checkGatewayHealth(gatewayUrl?: string): Promise<boolean> {
+  const url = gatewayUrl || DEFAULT_GATEWAY_URL
   try {
     // The health endpoint returns the control UI, but a 200 status means it's running
-    const response = await fetch(`${GATEWAY_URL}/`, {
+    const response = await fetch(`${url}/`, {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
     })

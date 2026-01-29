@@ -8,6 +8,11 @@ import { db } from '../../db/client.js'
 import { agentLibrary, installedAgents } from '../../db/schema.js'
 import { eq, and, sql, desc } from 'drizzle-orm'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
+import {
+  installAgentForTenant,
+  uninstallAgentFromTenant,
+  agentTemplateExists,
+} from '../../employees/installer.js'
 
 const libraryRouter = new Hono()
 
@@ -158,7 +163,15 @@ libraryRouter.post('/:agentId/install', zValidator('json', installSchema.optiona
   }
 
   try {
-    // Create installed agent
+    // Check if agent template exists on filesystem
+    const hasTemplate = await agentTemplateExists(agent.slug)
+
+    // Copy agent files to tenant directory and update configs
+    if (hasTemplate) {
+      await installAgentForTenant(tenantId, agent.slug, body.customName || agent.name)
+    }
+
+    // Create installed agent record in database
     const [installed] = await db
       .insert(installedAgents)
       .values({
@@ -302,7 +315,24 @@ libraryRouter.delete('/installed/:id', async (c) => {
     return c.json({ error: 'Installed agent not found' }, 404)
   }
 
-  // Soft delete (set inactive) or hard delete
+  // Get agent slug for filesystem operations
+  const [agent] = await db
+    .select({ slug: agentLibrary.slug })
+    .from(agentLibrary)
+    .where(eq(agentLibrary.id, existing.agentId))
+    .limit(1)
+
+  // Remove agent files from tenant directory and update configs
+  if (agent) {
+    try {
+      await uninstallAgentFromTenant(tenantId, agent.slug)
+    } catch (err) {
+      console.warn('Failed to uninstall agent files:', err)
+      // Continue with database cleanup even if filesystem fails
+    }
+  }
+
+  // Delete from database
   await db
     .delete(installedAgents)
     .where(eq(installedAgents.id, installedId))

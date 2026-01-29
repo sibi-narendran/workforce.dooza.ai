@@ -1,10 +1,11 @@
 /**
  * Employee Executor - Executes messages with AI agents via clawdbot gateway
  *
- * Agents are defined in code and registered in the shared gateway.
+ * Each tenant has their own clawdbot gateway (per-tenant mode).
  * Users install agents from the library; this executor routes messages to them.
  */
 import { callGatewayHook, GatewayTool } from '../lib/clawdbot-client.js'
+import { getGatewayUrlForTenant } from '../tenant/gateway-manager.js'
 import { db } from '../db/client.js'
 import {
   installedAgents,
@@ -85,6 +86,9 @@ export async function executeEmployee(
       }
     }
 
+    // Get per-tenant gateway URL (spawns gateway if not running)
+    const gatewayUrl = await getGatewayUrlForTenant(tenantId)
+
     const result = await callGatewayHook({
       agentId: agentSlug,
       message,
@@ -93,6 +97,7 @@ export async function executeEmployee(
       deliver: false, // Don't deliver to external channels
       timeoutSeconds: 120,
       tools: tools.length > 0 ? tools : undefined,
+      gatewayUrl,  // Use tenant's gateway
     })
 
     if (!result.ok) {
