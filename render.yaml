@@ -50,7 +50,7 @@ services:
       - key: MOLTBOT_STATE_DIR
         value: /opt/render/project/.moltbot
       - key: MOLTBOT_CONFIG_PATH
-        value: /opt/render/project/moltbot.production.json
+        value: /opt/render/project/src/clawdbot/moltbot.production.json
       - key: CLAWDBOT_GATEWAY_TOKEN
         sync: false
       - key: ANTHROPIC_API_KEY
