@@ -1,17 +1,19 @@
 /**
  * Employee Executor - Executes messages with AI agents via clawdbot gateway
+ *
+ * Agents are defined in code and registered in the shared gateway.
+ * Users install agents from the library; this executor routes messages to them.
  */
 import { callGatewayHook, GatewayTool } from '../lib/clawdbot-client.js'
 import { db } from '../db/client.js'
 import {
-  employees,
   installedAgents,
   agentLibrary,
   userIntegrations,
   integrationProviders,
   agentIntegrationSkills,
 } from '../db/schema.js'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { env } from '../lib/env.js'
 import { getToolsForToolkits, ComposioTool } from '../integrations/composio-client.js'
 
@@ -31,7 +33,7 @@ export interface ExecuteResult {
 }
 
 /**
- * Execute a message with an employee (installed agent or custom) using the clawdbot gateway
+ * Execute a message with an installed agent using the clawdbot gateway
  */
 export async function executeEmployee(
   tenantId: string,
@@ -40,9 +42,7 @@ export async function executeEmployee(
   options?: ExecuteOptions
 ): Promise<ExecuteResult> {
   try {
-    let agentSlug: string
-
-    // 1. Try to find as installed agent
+    // Find installed agent
     const [installedResult] = await db
       .select({
         installed: installedAgents,
@@ -58,32 +58,15 @@ export async function executeEmployee(
       )
       .limit(1)
 
-    if (installedResult) {
-      // Use the agent's slug from library
-      agentSlug = installedResult.agent.slug
-    } else {
-      // 2. Try to find as custom employee
-      const [employee] = await db
-        .select()
-        .from(employees)
-        .where(
-          and(
-            eq(employees.id, employeeId),
-            eq(employees.tenantId, tenantId)
-          )
-        )
-        .limit(1)
-
-      if (!employee) {
-        return {
-          success: false,
-          error: 'Employee not found',
-        }
+    if (!installedResult) {
+      return {
+        success: false,
+        error: 'Employee not found',
       }
-
-      // Use employee type as agent slug
-      agentSlug = employee.type
     }
+
+    // Use the agent's slug from library
+    const agentSlug = installedResult.agent.slug
 
     // Session key for tenant isolation
     const sessionKey = `tenant-${tenantId}-${employeeId}`
@@ -95,7 +78,7 @@ export async function executeEmployee(
     let tools: GatewayTool[] = []
     if (env.COMPOSIO_API_KEY) {
       try {
-        tools = await getComposioToolsForExecution(tenantId, employeeId)
+        tools = await getComposioToolsForExecution(tenantId, installedResult.agent.id)
       } catch (error) {
         console.error('[Executor] Failed to get Composio tools:', error)
         // Continue without tools - don't fail the execution
@@ -137,24 +120,12 @@ export async function executeEmployee(
 }
 
 /**
- * Get streaming WebSocket URL for employee chat
- * Note: This is a placeholder - streaming will be implemented later
- */
-export async function getEmployeeStreamUrl(
-  tenantId: string,
-  employeeId: string
-): Promise<string> {
-  // For now, return a placeholder - streaming will be implemented via SSE or WebSocket
-  return `ws://localhost:${env.PORT}/ws/employees/${employeeId}/chat`
-}
-
-/**
  * Get Composio tools for execution context
  * Returns tools based on: tenant's connected integrations ∩ agent's allowed skills
  */
 async function getComposioToolsForExecution(
   tenantId: string,
-  employeeId: string
+  agentId: string
 ): Promise<GatewayTool[]> {
   // 1. Get tenant's connected integrations
   const tenantConnections = await db
@@ -176,30 +147,14 @@ async function getComposioToolsForExecution(
   }
 
   // 2. Get agent's allowed integration skills (if any are defined)
-  // First, check if this is an installed agent
-  const [installedResult] = await db
-    .select({ agentId: agentLibrary.id })
-    .from(installedAgents)
-    .innerJoin(agentLibrary, eq(installedAgents.agentId, agentLibrary.id))
-    .where(
-      and(
-        eq(installedAgents.id, employeeId),
-        eq(installedAgents.tenantId, tenantId)
-      )
-    )
-    .limit(1)
+  const agentSkills = await db
+    .select({ providerId: agentIntegrationSkills.providerId })
+    .from(agentIntegrationSkills)
+    .where(eq(agentIntegrationSkills.agentId, agentId))
 
   let allowedProviderIds: string[] | null = null
-  if (installedResult) {
-    // Check if agent has specific skills defined
-    const agentSkills = await db
-      .select({ providerId: agentIntegrationSkills.providerId })
-      .from(agentIntegrationSkills)
-      .where(eq(agentIntegrationSkills.agentId, installedResult.agentId))
-
-    if (agentSkills.length > 0) {
-      allowedProviderIds = agentSkills.map(s => s.providerId)
-    }
+  if (agentSkills.length > 0) {
+    allowedProviderIds = agentSkills.map(s => s.providerId)
   }
 
   // 3. Filter connections to only allowed integrations
@@ -212,7 +167,6 @@ async function getComposioToolsForExecution(
   }
 
   // 4. Get Composio tools for available apps
-  // Use composioToolkit field, falling back to uppercase composioAppKey
   const toolkits = availableConnections
     .map(c => c.provider.composioToolkit || c.provider.composioAppKey?.toUpperCase())
     .filter((t): t is string => !!t)

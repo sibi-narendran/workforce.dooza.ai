@@ -1,18 +1,15 @@
 /**
- * Conversations Router - Chat with employees
+ * Conversations Router - Chat with employees (installed agents from library)
  */
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { zValidator } from '@hono/zod-validator'
 import { db } from '../../db/client.js'
-import { employees, conversations, installedAgents, agentLibrary } from '../../db/schema.js'
+import { conversations, installedAgents, agentLibrary } from '../../db/schema.js'
 import { eq, and, desc } from 'drizzle-orm'
 import { authMiddleware } from '../middleware/auth.js'
 import { tenantDirMiddleware } from '../middleware/tenant.js'
 import { executeEmployee } from '../../employees/executor.js'
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { tenantManager } from '../../tenant/manager.js'
 
 const conversationsRouter = new Hono()
 
@@ -27,10 +24,9 @@ const chatSchema = z.object({
 })
 
 /**
- * Helper: Check if an employee ID exists (installed agent or custom employee)
+ * Helper: Check if an employee ID is an installed agent for this tenant
  */
 async function verifyEmployeeAccess(employeeId: string, tenantId: string) {
-  // Check installed agents
   const [installed] = await db
     .select({ id: installedAgents.id })
     .from(installedAgents)
@@ -43,23 +39,7 @@ async function verifyEmployeeAccess(employeeId: string, tenantId: string) {
     )
     .limit(1)
 
-  if (installed) return { type: 'installed', id: installed.id }
-
-  // Check custom employees
-  const [employee] = await db
-    .select({ id: employees.id })
-    .from(employees)
-    .where(
-      and(
-        eq(employees.id, employeeId),
-        eq(employees.tenantId, tenantId)
-      )
-    )
-    .limit(1)
-
-  if (employee) return { type: 'custom', id: employee.id }
-
-  return null
+  return installed ? { id: installed.id } : null
 }
 
 /**
@@ -113,31 +93,8 @@ conversationsRouter.post('/employee/:employeeId/chat', zValidator('json', chatSc
       return c.json({ error: result.error || 'Failed to get response' }, 500)
     }
 
-    // For installed agents, we don't store in conversations table (no FK to employees)
-    // For custom employees, we can store
-    let conversationRecord = null
-
-    if (access.type === 'custom') {
-      const title = message.slice(0, 50) + (message.length > 50 ? '...' : '')
-      const [conv] = await db
-        .insert(conversations)
-        .values({
-          tenantId,
-          employeeId,
-          sessionKey,
-          title,
-          lastMessageAt: new Date(),
-        })
-        .returning()
-      conversationRecord = conv
-    }
-
     return c.json({
-      conversation: conversationRecord ? {
-        id: conversationRecord.id,
-        sessionKey: conversationRecord.sessionKey,
-        title: conversationRecord.title,
-      } : {
+      conversation: {
         id: `temp-${sessionKey}`,
         sessionKey,
         title: message.slice(0, 50) + (message.length > 50 ? '...' : ''),
@@ -164,11 +121,6 @@ conversationsRouter.get('/employee/:employeeId', async (c) => {
     return c.json({ error: 'Employee not found' }, 404)
   }
 
-  // For installed agents, return empty (no stored conversations)
-  if (access.type === 'installed') {
-    return c.json({ conversations: [] })
-  }
-
   const employeeConversations = await db
     .select()
     .from(conversations)
@@ -184,63 +136,6 @@ conversationsRouter.get('/employee/:employeeId', async (c) => {
       createdAt: conv.createdAt,
     })),
   })
-})
-
-/**
- * Get conversation messages (from clawdbot session files)
- */
-conversationsRouter.get('/:id/messages', async (c) => {
-  const tenantId = c.get('tenantId')
-  const conversationId = c.req.param('id')
-
-  // Get conversation
-  const [conversation] = await db
-    .select()
-    .from(conversations)
-    .where(and(eq(conversations.id, conversationId), eq(conversations.tenantId, tenantId)))
-    .limit(1)
-
-  if (!conversation) {
-    return c.json({ error: 'Conversation not found' }, 404)
-  }
-
-  // Try to read session file from clawdbot
-  try {
-    const sessionDir = join(
-      tenantManager.getStateDir(tenantId),
-      'agents',
-      conversation.employeeId,
-      'sessions'
-    )
-    const sessionFile = join(sessionDir, `${conversation.sessionKey}.jsonl`)
-
-    const content = await readFile(sessionFile, 'utf-8')
-    const messages = content
-      .split('\n')
-      .filter((line) => line.trim())
-      .map((line) => JSON.parse(line))
-
-    return c.json({
-      conversation: {
-        id: conversation.id,
-        sessionKey: conversation.sessionKey,
-        title: conversation.title,
-        employeeId: conversation.employeeId,
-      },
-      messages,
-    })
-  } catch (error) {
-    // Session file might not exist yet
-    return c.json({
-      conversation: {
-        id: conversation.id,
-        sessionKey: conversation.sessionKey,
-        title: conversation.title,
-        employeeId: conversation.employeeId,
-      },
-      messages: [],
-    })
-  }
 })
 
 /**

@@ -1,3 +1,6 @@
+import { useAuthStore } from './store'
+import { tokenRefreshCoordinator, shouldRefreshToken, AuthError } from './auth-interceptor'
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 interface ApiOptions {
@@ -5,6 +8,7 @@ interface ApiOptions {
   body?: unknown
   token?: string | null
   timeoutMs?: number
+  retry401?: boolean
 }
 
 class ApiError extends Error {
@@ -17,8 +21,15 @@ class ApiError extends Error {
   }
 }
 
-async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
-  const { method = 'GET', body, token, timeoutMs = 120000 } = options
+/**
+ * Make a fetch request and parse the response
+ */
+async function fetchWithParsing<T>(
+  endpoint: string,
+  token: string | null | undefined,
+  options: Omit<ApiOptions, 'token' | 'retry401'>
+): Promise<T> {
+  const { method = 'GET', body, timeoutMs = 120000 } = options
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -37,7 +48,6 @@ async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
       signal: AbortSignal.timeout(timeoutMs),
     })
   } catch (err) {
-    // Network error or timeout
     if (err instanceof Error) {
       if (err.name === 'TimeoutError' || err.name === 'AbortError') {
         throw new ApiError('Request timed out - the server may be busy', 408)
@@ -50,7 +60,7 @@ async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
     throw new ApiError('Network error', 0)
   }
 
-  // Parse response body safely
+  // Parse response body
   let data: unknown
   const contentType = response.headers.get('content-type')
   const text = await response.text()
@@ -59,20 +69,17 @@ async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
     try {
       data = JSON.parse(text)
     } catch {
-      // JSON parse failed
       if (!response.ok) {
         throw new ApiError(text || `Request failed (${response.status})`, response.status)
       }
       throw new ApiError('Invalid response from server', response.status)
     }
   } else if (text) {
-    // Non-JSON response
     if (!response.ok) {
       throw new ApiError(text, response.status)
     }
     data = { text }
   } else {
-    // Empty response
     if (!response.ok) {
       throw new ApiError(`Request failed (${response.status})`, response.status)
     }
@@ -88,6 +95,163 @@ async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   }
 
   return data as T
+}
+
+/**
+ * Get current access token from store, refreshing proactively if near expiry
+ * Always reads fresh state from store to avoid stale data
+ */
+async function getAccessToken(): Promise<string | null> {
+  // Always read fresh state
+  const { session } = useAuthStore.getState()
+
+  if (!session?.accessToken) {
+    return null
+  }
+
+  // Check if token needs proactive refresh
+  if (!shouldRefreshToken(session.expiresAt)) {
+    return session.accessToken
+  }
+
+  // Token needs refresh - attempt proactive refresh
+  if (session.refreshToken) {
+    try {
+      const newSession = await tokenRefreshCoordinator.refresh(session.refreshToken)
+
+      // Re-read state after async operation - user might have logged out
+      const currentState = useAuthStore.getState()
+      if (!currentState.session) {
+        // Session was cleared (user logged out) - don't restore it
+        return null
+      }
+
+      // Update store with new session
+      currentState.updateSession({
+        accessToken: newSession.accessToken,
+        refreshToken: newSession.refreshToken,
+        expiresAt: newSession.expiresAt,
+      })
+
+      return newSession.accessToken
+    } catch {
+      // Proactive refresh failed
+      // Re-read fresh state - another call might have succeeded
+      const freshState = useAuthStore.getState()
+      if (freshState.session?.accessToken) {
+        return freshState.session.accessToken
+      }
+      return null
+    }
+  }
+
+  return session.accessToken
+}
+
+/**
+ * Handle 401 error by refreshing token and retrying
+ * Always reads fresh state to handle concurrent refresh scenarios
+ */
+async function handleUnauthorized<T>(
+  endpoint: string,
+  options: Omit<ApiOptions, 'token' | 'retry401'>
+): Promise<T> {
+  // Read fresh state - another call might have already refreshed
+  const { session } = useAuthStore.getState()
+
+  if (!session?.refreshToken) {
+    useAuthStore.getState().clearAuth()
+    throw new ApiError('Session expired. Please log in again.', 401)
+  }
+
+  try {
+    const newSession = await tokenRefreshCoordinator.refresh(session.refreshToken)
+
+    // Re-read state after async operation - user might have logged out
+    const currentState = useAuthStore.getState()
+    if (!currentState.session) {
+      // Session was cleared (user logged out) - don't restore it
+      throw new ApiError('Session expired. Please log in again.', 401)
+    }
+
+    // Update store
+    currentState.updateSession({
+      accessToken: newSession.accessToken,
+      refreshToken: newSession.refreshToken,
+      expiresAt: newSession.expiresAt,
+    })
+
+    // Retry with new token
+    return await fetchWithParsing<T>(endpoint, newSession.accessToken, options)
+  } catch (error) {
+    // Refresh failed - check if it's because token was already rotated
+    // by another concurrent request
+    const freshState = useAuthStore.getState()
+
+    // Check if another call refreshed successfully while we were trying
+    if (
+      freshState.session?.accessToken &&
+      freshState.session.accessToken !== session.accessToken
+    ) {
+      // Another call refreshed successfully, retry with the new token
+      try {
+        return await fetchWithParsing<T>(endpoint, freshState.session.accessToken, options)
+      } catch (retryError) {
+        // Still failed, clear auth
+        useAuthStore.getState().clearAuth()
+        throw retryError
+      }
+    }
+
+    // No concurrent refresh succeeded
+    // Clear auth for auth failures, preserve error for others
+    if (error instanceof AuthError && (error.status === 401 || error.status === 403)) {
+      useAuthStore.getState().clearAuth()
+      throw new ApiError('Session expired. Please log in again.', 401)
+    }
+
+    // Non-auth error (network, timeout, etc.) - clear auth but throw original
+    useAuthStore.getState().clearAuth()
+    throw error
+  }
+}
+
+/**
+ * Main API function with automatic token refresh
+ */
+async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
+  const { token, retry401 = true, ...requestOptions } = options
+
+  // Determine if this is an authenticated request
+  // (token param is truthy, not just present)
+  const isAuthenticatedRequest = Boolean(token)
+
+  // For authenticated requests, get current valid token
+  let effectiveToken: string | null = null
+  if (isAuthenticatedRequest) {
+    effectiveToken = await getAccessToken()
+    if (!effectiveToken) {
+      // No valid token available
+      useAuthStore.getState().clearAuth()
+      throw new ApiError('Session expired. Please log in again.', 401)
+    }
+  }
+
+  try {
+    return await fetchWithParsing<T>(endpoint, effectiveToken, requestOptions)
+  } catch (error) {
+    // Handle 401 with retry if enabled and this was an authenticated request
+    if (
+      error instanceof ApiError &&
+      error.status === 401 &&
+      retry401 &&
+      isAuthenticatedRequest
+    ) {
+      return handleUnauthorized<T>(endpoint, requestOptions)
+    }
+
+    throw error
+  }
 }
 
 // Auth

@@ -31,7 +31,8 @@
 |---------|-----|----------|
 | Frontend | https://workforce.dooza.ai | Vercel |
 | Backend API | https://workforce-api-g3kg.onrender.com | Render |
-| Health Check | https://workforce-api-g3kg.onrender.com/health | Render |
+| Gateway | https://workforce-gateway.onrender.com | Render |
+| API Health | https://workforce-api-g3kg.onrender.com/health | Render |
 
 ## Git Integration
 
@@ -224,12 +225,14 @@ curl https://workforce-api-g3kg.onrender.com/health
 
 ## Service IDs (for API access)
 
-| Service | ID |
-|---------|-----|
-| Render Service | `srv-d5sdgkjlr7ts738tqcn0` |
-| Render Owner | `tea-cteopvpu0jms739ensog` |
-| Vercel Project | `prj_4kyiMiTScqOghsET0cHK1jCqtkOT` |
-| Vercel Team | `team_cp09fdPmZCanzad8ARWo6dTM` |
-| Supabase Project | `cydhvvqvgrvntzitrrwy` |
+| Service | ID | URL |
+|---------|-----|-----|
+| Render API | `srv-d5sdgkjlr7ts738tqcn0` | `https://workforce-api-g3kg.onrender.com` |
+| Render Gateway | `srv-d5t2ium3jp1c7390rqeg` | `https://workforce-gateway.onrender.com` |
+| Render Owner | `tea-cteopvpu0jms739ensog` | - |
+| Vercel Project | `prj_4kyiMiTScqOghsET0cHK1jCqtkOT` | `https://workforce.dooza.ai` |
+| Vercel Team | `team_cp09fdPmZCanzad8ARWo6dTM` | - |
+| Supabase Project | `cydhvvqvgrvntzitrrwy` | `https://cydhvvqvgrvntzitrrwy.supabase.co` |
 
-rnd_e9bNLP2bojBJMD2rW1en5XSLnOOQ render api
+## API Keys (stored securely, not in git)
+- Render API Key: Set in environment as `RENDER_API_KEY`
