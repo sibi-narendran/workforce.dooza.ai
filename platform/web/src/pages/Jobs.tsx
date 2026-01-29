@@ -1,70 +1,51 @@
-import { useEffect, useState } from 'react'
-import { jobsApi, employeesApi, type Job, type Employee } from '../lib/api'
-import { useAuthStore } from '../lib/store'
+import { useState, useCallback } from 'react'
+import { useJobsWithEmployees, useCreateJob, useUpdateJob, useDeleteJob, useRunJob, getErrorMessage } from '../lib/queries'
+import { ErrorDisplay } from '../components/ErrorDisplay'
+import { ERROR_TOAST_DURATION_MS } from '../lib/constants'
+import type { Job, Employee } from '../lib/api'
 
 export function Jobs() {
-  const { session } = useAuthStore()
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [loading, setLoading] = useState(true)
+  const { jobs, employees, isLoading, error, refetch } = useJobsWithEmployees()
   const [showCreate, setShowCreate] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
-  const loadData = async () => {
-    if (!session?.accessToken) return
+  const updateJob = useUpdateJob()
+  const deleteJob = useDeleteJob()
+  const runJob = useRunJob()
 
-    try {
-      const [jobsRes, empRes] = await Promise.all([
-        jobsApi.list(session.accessToken),
-        employeesApi.list(session.accessToken),
-      ])
-      setJobs(jobsRes.jobs)
-      setEmployees(empRes.employees)
-    } catch (error) {
-      console.error('Failed to load jobs:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadData()
-  }, [session?.accessToken])
+  // Show error to user with auto-dismiss
+  const showError = useCallback((message: string) => {
+    setActionError(message)
+    setTimeout(() => setActionError(null), ERROR_TOAST_DURATION_MS)
+  }, [])
 
   const handleToggle = async (job: Job) => {
-    if (!session?.accessToken) return
-
     try {
-      await jobsApi.update(session.accessToken, job.id, { enabled: !job.enabled })
-      loadData()
-    } catch (error) {
-      console.error('Failed to toggle job:', error)
+      await updateJob.mutateAsync({ id: job.id, data: { enabled: !job.enabled } })
+    } catch (err) {
+      showError(`Failed to ${job.enabled ? 'disable' : 'enable'} job: ${getErrorMessage(err)}`)
     }
   }
 
   const handleRun = async (jobId: string) => {
-    if (!session?.accessToken) return
-
     try {
-      await jobsApi.run(session.accessToken, jobId)
-      loadData()
-    } catch (error) {
-      console.error('Failed to run job:', error)
+      await runJob.mutateAsync(jobId)
+    } catch (err) {
+      showError(`Failed to run job: ${getErrorMessage(err)}`)
     }
   }
 
   const handleDelete = async (jobId: string) => {
-    if (!session?.accessToken) return
     if (!confirm('Are you sure you want to delete this job?')) return
 
     try {
-      await jobsApi.delete(session.accessToken, jobId)
-      loadData()
-    } catch (error) {
-      console.error('Failed to delete job:', error)
+      await deleteJob.mutateAsync(jobId)
+    } catch (err) {
+      showError(`Failed to delete job: ${getErrorMessage(err)}`)
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="loading" />
@@ -72,8 +53,49 @@ export function Jobs() {
     )
   }
 
+  if (error) {
+    return <ErrorDisplay message={getErrorMessage(error)} onRetry={() => refetch()} />
+  }
+
   return (
     <div style={{ padding: 32 }}>
+      {/* Action Error Toast */}
+      {actionError && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            padding: '12px 16px',
+            background: 'var(--danger-subtle)',
+            border: '1px solid var(--danger)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--danger)',
+            fontSize: 13,
+            maxWidth: 400,
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <span style={{ flex: 1 }}>{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--danger)',
+              cursor: 'pointer',
+              padding: 0,
+              fontSize: 16,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
@@ -84,19 +106,19 @@ export function Jobs() {
             Automate tasks with your AI employees
           </p>
         </div>
-        <button className="btn" onClick={() => setShowCreate(true)} disabled={employees.length === 0}>
+        <button className="btn" onClick={() => setShowCreate(true)} disabled={!employees || employees.length === 0}>
           + Create Job
         </button>
       </div>
 
-      {employees.length === 0 ? (
+      {!employees || employees.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 60 }}>
           <h3 style={{ margin: '0 0 8px', color: 'var(--text-strong)' }}>Create an employee first</h3>
           <p style={{ margin: 0, color: 'var(--muted)' }}>
             You need at least one AI employee to create scheduled jobs.
           </p>
         </div>
-      ) : jobs.length === 0 ? (
+      ) : !jobs || jobs.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 60 }}>
           <h3 style={{ margin: '0 0 8px', color: 'var(--text-strong)' }}>No scheduled jobs</h3>
           <p style={{ margin: '0 0 20px', color: 'var(--muted)' }}>
@@ -137,6 +159,7 @@ export function Jobs() {
                   <td style={{ padding: '12px 16px' }}>
                     <button
                       onClick={() => handleToggle(job)}
+                      disabled={updateJob.isPending}
                       style={{
                         width: 36,
                         height: 20,
@@ -202,6 +225,7 @@ export function Jobs() {
                     <button
                       className="btn btn-ghost"
                       onClick={() => handleRun(job.id)}
+                      disabled={runJob.isPending}
                       style={{ padding: '6px 10px', fontSize: 12, marginRight: 8 }}
                     >
                       Run Now
@@ -209,6 +233,7 @@ export function Jobs() {
                     <button
                       className="btn btn-ghost"
                       onClick={() => handleDelete(job.id)}
+                      disabled={deleteJob.isPending}
                       style={{ padding: '6px 10px', fontSize: 12, color: 'var(--danger)' }}
                     >
                       Delete
@@ -222,15 +247,11 @@ export function Jobs() {
       )}
 
       {/* Create Modal */}
-      {showCreate && (
+      {showCreate && employees && employees.length > 0 && (
         <CreateJobModal
           employees={employees}
-          token={session?.accessToken || ''}
           onClose={() => setShowCreate(false)}
-          onCreated={() => {
-            setShowCreate(false)
-            loadData()
-          }}
+          onCreated={() => setShowCreate(false)}
         />
       )}
     </div>
@@ -239,12 +260,10 @@ export function Jobs() {
 
 function CreateJobModal({
   employees,
-  token,
   onClose,
   onCreated,
 }: {
   employees: Employee[]
-  token: string
   onClose: () => void
   onCreated: () => void
 }) {
@@ -252,8 +271,9 @@ function CreateJobModal({
   const [employeeId, setEmployeeId] = useState(employees[0]?.id || '')
   const [schedule, setSchedule] = useState('0 9 * * *')
   const [prompt, setPrompt] = useState('')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const createJob = useCreateJob()
 
   const handleCreate = async () => {
     if (!name.trim() || !prompt.trim()) {
@@ -261,11 +281,10 @@ function CreateJobModal({
       return
     }
 
-    setLoading(true)
     setError('')
 
     try {
-      await jobsApi.create(token, {
+      await createJob.mutateAsync({
         name,
         employeeId,
         schedule,
@@ -273,10 +292,8 @@ function CreateJobModal({
         enabled: true,
       })
       onCreated()
-    } catch (err: any) {
-      setError(err.message || 'Failed to create job')
-    } finally {
-      setLoading(false)
+    } catch (err) {
+      setError(getErrorMessage(err))
     }
   }
 
@@ -303,7 +320,7 @@ function CreateJobModal({
             onClick={onClose}
             style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 20 }}
           >
-            x
+            ×
           </button>
         </div>
 
@@ -381,8 +398,8 @@ function CreateJobModal({
             <button className="btn btn-secondary" onClick={onClose} style={{ flex: 1 }}>
               Cancel
             </button>
-            <button className="btn" onClick={handleCreate} disabled={loading} style={{ flex: 1 }}>
-              {loading ? <div className="loading" style={{ width: 18, height: 18 }} /> : 'Create Job'}
+            <button className="btn" onClick={handleCreate} disabled={createJob.isPending} style={{ flex: 1 }}>
+              {createJob.isPending ? <div className="loading" style={{ width: 18, height: 18 }} /> : 'Create Job'}
             </button>
           </div>
         </div>

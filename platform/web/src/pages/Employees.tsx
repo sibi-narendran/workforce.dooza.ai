@@ -1,35 +1,21 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { employeesApi, type Employee } from '../lib/api'
-import { useAuthStore } from '../lib/store'
+import { useEmployees, getErrorMessage } from '../lib/queries'
 import { EmployeeCard } from '../components/EmployeeCard'
+import { ErrorDisplay } from '../components/ErrorDisplay'
 
 export function Employees() {
-  const { session } = useAuthStore()
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: employees, isLoading, error, refetch } = useEmployees()
 
-  const loadData = async () => {
-    try {
-      const empRes = await employeesApi.list(session?.accessToken || '')
-      setEmployees(empRes.employees)
-    } catch (error) {
-      console.error('Failed to load employees:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadData()
-  }, [session?.accessToken])
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="loading" />
       </div>
     )
+  }
+
+  if (error) {
+    return <ErrorDisplay message={getErrorMessage(error)} onRetry={() => refetch()} />
   }
 
   return (
@@ -60,7 +46,7 @@ export function Employees() {
       </div>
 
       {/* Employee Grid */}
-      {employees.length === 0 ? (
+      {!employees || employees.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 60 }}>
           <h3 style={{ margin: '0 0 8px', color: 'var(--text-strong)' }}>No employees yet</h3>
           <p style={{ margin: '0 0 20px', color: 'var(--muted)' }}>

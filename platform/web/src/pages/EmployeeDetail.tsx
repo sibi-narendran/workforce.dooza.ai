@@ -1,53 +1,43 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { employeesApi, conversationsApi, type Employee, type Conversation } from '../lib/api'
-import { useAuthStore } from '../lib/store'
+import { useEmployeeDetail, useDeleteEmployee, getErrorMessage } from '../lib/queries'
 
 export function EmployeeDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { session } = useAuthStore()
-  const [employee, setEmployee] = useState<Employee | null>(null)
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [loading, setLoading] = useState(true)
-  const [deleting, setDeleting] = useState(false)
-
-  useEffect(() => {
-    if (!session?.accessToken || !id) return
-
-    Promise.all([
-      employeesApi.get(session.accessToken, id),
-      conversationsApi.listByEmployee(session.accessToken, id),
-    ])
-      .then(([empRes, convRes]) => {
-        setEmployee(empRes.employee)
-        setConversations(convRes.conversations)
-      })
-      .catch((error) => {
-        console.error('Failed to load employee:', error)
-        navigate('/employees')
-      })
-      .finally(() => setLoading(false))
-  }, [session?.accessToken, id, navigate])
+  const { employee, conversations, isLoading, error } = useEmployeeDetail(id)
+  const deleteEmployee = useDeleteEmployee()
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const handleDelete = async () => {
-    if (!session?.accessToken || !id) return
+    if (!id) return
     if (!confirm('Are you sure you want to delete this employee?')) return
 
-    setDeleting(true)
+    setDeleteError(null)
+
     try {
-      await employeesApi.delete(session.accessToken, id)
+      await deleteEmployee.mutateAsync(id)
       navigate('/employees')
-    } catch (error) {
-      console.error('Failed to delete employee:', error)
-      setDeleting(false)
+    } catch (err) {
+      setDeleteError(getErrorMessage(err))
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="loading" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: 32, textAlign: 'center' }}>
+        <p style={{ color: 'var(--danger)' }}>{getErrorMessage(error)}</p>
+        <Link to="/employees" className="btn" style={{ marginTop: 16 }}>
+          Back to Employees
+        </Link>
       </div>
     )
   }
@@ -116,13 +106,46 @@ export function EmployeeDetail() {
             <button
               className="btn btn-ghost"
               onClick={handleDelete}
-              disabled={deleting}
+              disabled={deleteEmployee.isPending}
               style={{ color: 'var(--danger)' }}
             >
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleteEmployee.isPending ? 'Deleting...' : 'Delete'}
             </button>
           </div>
         </div>
+
+        {/* Delete Error */}
+        {deleteError && (
+          <div
+            style={{
+              marginTop: 16,
+              padding: '12px 16px',
+              background: 'var(--danger-subtle)',
+              border: '1px solid var(--danger)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--danger)',
+              fontSize: 13,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <span style={{ flex: 1 }}>{deleteError}</span>
+            <button
+              onClick={() => setDeleteError(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--danger)',
+                cursor: 'pointer',
+                padding: 0,
+                fontSize: 16,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>

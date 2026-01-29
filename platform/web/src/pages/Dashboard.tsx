@@ -1,34 +1,13 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { employeesApi, jobsApi, conversationsApi, type Employee, type Job, type Conversation } from '../lib/api'
+import { useDashboardData } from '../lib/queries'
 import { useAuthStore } from '../lib/store'
 import { EmployeeCard } from '../components/EmployeeCard'
 
 export function Dashboard() {
-  const { session, tenant } = useAuthStore()
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [loading, setLoading] = useState(true)
+  const { tenant } = useAuthStore()
+  const { employees, jobs, conversations, isLoading } = useDashboardData()
 
-  useEffect(() => {
-    if (!session?.accessToken) return
-
-    Promise.all([
-      employeesApi.list(session.accessToken),
-      jobsApi.list(session.accessToken),
-      conversationsApi.list(session.accessToken),
-    ])
-      .then(([empRes, jobRes, convRes]) => {
-        setEmployees(empRes.employees)
-        setJobs(jobRes.jobs)
-        setConversations(convRes.conversations)
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [session?.accessToken])
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="loading" />

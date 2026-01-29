@@ -1,53 +1,39 @@
-import { useEffect, useState } from 'react'
-import { libraryApi, type LibraryAgent } from '../lib/api'
+import { useState } from 'react'
+import { useLibrary, useInstallAgent, getErrorMessage } from '../lib/queries'
 import { useAuthStore } from '../lib/store'
+import { ErrorDisplay } from '../components/ErrorDisplay'
+import type { LibraryAgent } from '../lib/api'
 
 export function Library() {
   const { session } = useAuthStore()
-  const [agents, setAgents] = useState<LibraryAgent[]>([])
-  const [loading, setLoading] = useState(true)
-  const [installing, setInstalling] = useState<string | null>(null)
-  const [error, setError] = useState('')
+  const { data: agents, isLoading, error, refetch } = useLibrary()
+  const [installingId, setInstallingId] = useState<string | null>(null)
+  const [localError, setLocalError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const loadAgents = async () => {
-    try {
-      // Pass token if available to get installed status
-      const res = await libraryApi.list(session?.accessToken)
-      setAgents(res.agents)
-    } catch (err) {
-      console.error('Failed to load library:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadAgents()
-  }, [session?.accessToken])
+  const installAgent = useInstallAgent()
 
   const handleInstall = async (agent: LibraryAgent) => {
     if (!session?.accessToken) {
-      setError('Please log in to install agents')
+      setLocalError('Please log in to install agents')
       return
     }
 
-    setInstalling(agent.id)
-    setError('')
+    setInstallingId(agent.id)
+    setLocalError('')
     setSuccess('')
 
     try {
-      await libraryApi.install(session.accessToken, agent.id)
+      await installAgent.mutateAsync({ agentId: agent.id })
       setSuccess(`${agent.name} installed! Go to Employees to chat.`)
-      loadAgents() // Refresh to update install count
-    } catch (err: any) {
-      setError(err.message || 'Failed to install agent')
+    } catch (err) {
+      setLocalError(getErrorMessage(err))
     } finally {
-      setInstalling(null)
+      setInstallingId(null)
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="loading" />
@@ -55,7 +41,11 @@ export function Library() {
     )
   }
 
-  const categories = [...new Set(agents.map(a => a.category || 'other'))]
+  if (error) {
+    return <ErrorDisplay message={getErrorMessage(error)} onRetry={() => refetch()} />
+  }
+
+  const categories = [...new Set((agents ?? []).map(a => a.category || 'other'))]
 
   return (
     <div
@@ -76,7 +66,7 @@ export function Library() {
       </div>
 
       {/* Messages */}
-      {error && (
+      {localError && (
         <div
           style={{
             padding: '12px 16px',
@@ -87,7 +77,7 @@ export function Library() {
             marginBottom: 20,
           }}
         >
-          {error}
+          {localError}
         </div>
       )}
 
@@ -128,14 +118,14 @@ export function Library() {
               gap: 16,
             }}
           >
-            {agents
+            {(agents ?? [])
               .filter((a) => (a.category || 'other') === category)
               .map((agent) => (
                 <AgentCard
                   key={agent.id}
                   agent={agent}
                   onInstall={() => handleInstall(agent)}
-                  installing={installing === agent.id}
+                  installing={installingId === agent.id}
                   isLoggedIn={!!session?.accessToken}
                   isInstalled={agent.isInstalled || false}
                 />
