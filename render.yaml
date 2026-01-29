@@ -43,7 +43,7 @@ services:
     runtime: node
     rootDir: clawdbot
     buildCommand: npm i -g pnpm@10 && pnpm install && pnpm build
-    startCommand: node moltbot.mjs gateway --port $PORT --bind lan --allow-unconfigured
+    startCommand: mkdir -p /opt/render/project/.moltbot && echo '{"gateway":{"mode":"local","http":{"endpoints":{"chatCompletions":{"enabled":true}}}}}' > /opt/render/project/.moltbot/moltbot.json && node moltbot.mjs gateway --port $PORT --bind lan
     envVars:
       - key: NODE_ENV
         value: production
