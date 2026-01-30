@@ -7,9 +7,9 @@
  * Returns: JSON with image path or error
  */
 
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
+import fs from 'node:fs';
+import path from 'node:path';
+import https from 'node:https';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = 'google/gemini-3-pro-image-preview';

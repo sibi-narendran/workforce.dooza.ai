@@ -149,11 +149,6 @@ async function createTables() {
 
   // Create indexes for faster lookups
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_user_integrations_user
-    ON user_integrations(user_id)
-  `)
-
-  await db.execute(sql`
     CREATE INDEX IF NOT EXISTS idx_user_integrations_tenant
     ON user_integrations(tenant_id)
   `)

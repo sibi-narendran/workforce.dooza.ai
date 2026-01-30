@@ -49,10 +49,24 @@ interface ClawdbotConfig {
       }
     }
   }
+  // Multi-tenant security: Disable dangerous tools
+  tools?: {
+    // Deny list for dangerous tools (exec, process = bash/shell access)
+    deny?: string[]
+  }
   agents: {
     defaults: {
       model: {
         primary: string
+      }
+      // Multi-tenant security: Sandbox configuration
+      sandbox?: {
+        // Mode: 'off' | 'all' | 'docker' - use 'all' to enable path validation
+        mode?: string
+        // Workspace root for sandboxed sessions
+        workspaceRoot?: string
+        // Access mode: 'none' | 'ro' | 'rw'
+        workspaceAccess?: string
       }
     }
     list?: Array<{
@@ -220,6 +234,10 @@ export class TenantManager {
       ? env.DEFAULT_MODEL
       : `openrouter/${env.DEFAULT_MODEL}`
 
+    // Multi-tenant security: Create workspace directory for sandboxing
+    const workspaceDir = join(tenantDir, 'workspace')
+    await mkdir(workspaceDir, { recursive: true })
+
     const clawdbotConfig: ClawdbotConfig = {
       gateway: {
         mode: DEFAULT_GATEWAY_MODE,
@@ -231,10 +249,20 @@ export class TenantManager {
           },
         },
       },
+      // Multi-tenant security: Disable shell/exec access to prevent command execution
+      tools: {
+        deny: ['exec', 'process'],
+      },
       agents: {
         defaults: {
           model: {
             primary: model,
+          },
+          // Multi-tenant security: Enable sandbox mode for path validation
+          sandbox: {
+            mode: 'all',
+            workspaceRoot: workspaceDir,
+            workspaceAccess: 'rw',
           },
         },
       },
