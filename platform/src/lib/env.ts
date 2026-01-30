@@ -1,4 +1,11 @@
 // Environment configuration with validation
+import { resolve } from 'node:path'
+
+// Resolve tenant data dir to absolute path
+function resolveTenantDataDir(): string {
+  const dir = process.env.TENANT_DATA_DIR || './data/tenants'
+  return resolve(process.cwd(), dir)
+}
 
 export const env = {
   // Server
@@ -13,8 +20,8 @@ export const env = {
   // Database
   DATABASE_URL: process.env.DATABASE_URL!,
 
-  // Tenant data
-  TENANT_DATA_DIR: process.env.TENANT_DATA_DIR || '/tmp/workforce-tenants',
+  // Tenant data (resolved to absolute path)
+  TENANT_DATA_DIR: resolveTenantDataDir(),
 
   // Gateway ports
   GATEWAY_PORT_START: parseInt(process.env.GATEWAY_PORT_START || '18790', 10),

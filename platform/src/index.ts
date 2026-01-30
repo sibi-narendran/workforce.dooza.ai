@@ -58,7 +58,7 @@ async function shutdown(signal: string) {
   // Stop scheduler
   jobScheduler.stop()
 
-  // Stop all per-tenant gateways
+  // Cleanup (no-op in multi-tenant mode - gateway managed externally)
   stopAllGateways()
 
   console.log('[Platform] Shutdown complete')

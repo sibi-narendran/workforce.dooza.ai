@@ -12,6 +12,7 @@ export interface GatewayRequest {
   timeoutSeconds?: number
   tools?: GatewayTool[]
   gatewayUrl?: string  // Optional: use per-tenant gateway URL
+  tenantId?: string    // Tenant ID for multi-tenant mode
 }
 
 export interface GatewayTool {
@@ -50,6 +51,8 @@ export async function callGatewayHook(req: GatewayRequest): Promise<GatewayRespo
         // Pass agent ID and session key via custom headers
         'X-Clawdbot-Agent': req.agentId,
         'X-Clawdbot-Session': req.sessionKey || '',
+        // Multi-tenant: pass tenant ID for state directory resolution
+        ...(req.tenantId ? { 'X-Tenant-ID': req.tenantId } : {}),
       },
       body: JSON.stringify({
         model: req.agentId, // Agent ID is passed as the model

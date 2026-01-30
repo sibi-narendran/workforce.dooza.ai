@@ -1,7 +1,10 @@
 /**
  * Employee Executor - Executes messages with AI agents via clawdbot gateway
  *
- * Each tenant has their own clawdbot gateway (per-tenant mode).
+ * Multi-tenant mode: A single gateway can serve multiple tenants.
+ * The tenant ID is passed via X-Tenant-ID header, and the gateway resolves
+ * the tenant's state directory dynamically.
+ *
  * Users install agents from the library; this executor routes messages to them.
  */
 import { callGatewayHook, GatewayTool } from '../lib/clawdbot-client.js'
@@ -98,6 +101,7 @@ export async function executeEmployee(
       timeoutSeconds: 120,
       tools: tools.length > 0 ? tools : undefined,
       gatewayUrl,  // Use tenant's gateway
+      tenantId,    // Multi-tenant: pass tenant ID for state dir resolution
     })
 
     if (!result.ok) {
