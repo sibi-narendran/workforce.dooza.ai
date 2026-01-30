@@ -48,9 +48,9 @@ export async function callGatewayHook(req: GatewayRequest): Promise<GatewayRespo
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${HOOK_TOKEN}`,
-        // Pass agent ID and session key via custom headers
-        'X-Clawdbot-Agent': req.agentId,
-        'X-Clawdbot-Session': req.sessionKey || '',
+        // Pass agent ID and session key via custom headers (OpenClaw format)
+        'X-OpenClaw-Agent': req.agentId,
+        'X-OpenClaw-Session-Key': req.sessionKey || '',
         // Multi-tenant: pass tenant ID for state directory resolution
         ...(req.tenantId ? { 'X-Tenant-ID': req.tenantId } : {}),
       },

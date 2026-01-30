@@ -58,7 +58,8 @@ interface ClawdbotConfig {
     list?: Array<{
       id: string
       default?: boolean
-      agentDir: string  // clawdbot uses agentDir, not workspace
+      workspace: string   // clawdbot uses this for resolveAgentWorkspaceDir()
+      agentDir: string    // clawdbot uses this for resolveAgentDir() (sessions/memory)
     }>
   }
 }
@@ -356,7 +357,10 @@ export class TenantManager {
     const existingIndex = config.agents.list.findIndex(a => a.id === agent.id)
     const agentEntry = {
       id: agent.id,
-      agentDir: agent.agentDir,  // clawdbot uses agentDir for workspace path
+      // clawdbot uses 'workspace' for resolveAgentWorkspaceDir(), not 'agentDir'
+      workspace: agent.agentDir,
+      // Also set agentDir for resolveAgentDir() (sessions, memory paths)
+      agentDir: agent.agentDir,
       ...(agent.isDefault ? { default: true } : {}),
     }
 
