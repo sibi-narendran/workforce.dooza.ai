@@ -259,9 +259,10 @@ export class TenantManager {
             primary: model,
           },
           // Multi-tenant security: Enable sandbox mode for path validation
+          // workspaceRoot covers entire tenant directory so agents can access their files in /agents/{slug}/
           sandbox: {
-            mode: 'all',
-            workspaceRoot: workspaceDir,
+            mode: 'paths-only',
+            workspaceRoot: tenantDir,
             workspaceAccess: 'rw',
           },
         },
