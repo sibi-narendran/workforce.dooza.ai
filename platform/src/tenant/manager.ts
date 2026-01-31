@@ -1,6 +1,14 @@
 import { mkdir, rm, writeFile, readFile, access } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
 import { env } from '../lib/env.js'
+
+/**
+ * Generate a secure random token for gateway authentication
+ */
+function generateGatewayToken(): string {
+  return randomBytes(24).toString('hex')
+}
 
 // Constants - avoid magic strings
 const CONFIG_FILES = {
@@ -48,6 +56,15 @@ interface ClawdbotConfig {
         }
       }
     }
+    // Auth token for incoming gateway requests
+    auth?: {
+      mode: 'token'
+      token: string
+    }
+    // Remote token for agent-to-agent communication (must match auth.token)
+    remote?: {
+      token: string
+    }
   }
   // Multi-tenant security: Disable dangerous tools
   tools?: {
@@ -67,6 +84,8 @@ interface ClawdbotConfig {
         workspaceRoot?: string
         // Access mode: 'none' | 'ro' | 'rw'
         workspaceAccess?: string
+        // Session visibility: 'spawned' (only see own spawned) | 'all' (see all sessions)
+        sessionToolsVisibility?: 'spawned' | 'all'
       }
     }
     list?: Array<{
@@ -238,6 +257,9 @@ export class TenantManager {
     const workspaceDir = join(tenantDir, 'workspace')
     await mkdir(workspaceDir, { recursive: true })
 
+    // Generate a secure token for gateway auth (shared between auth and remote)
+    const gatewayToken = generateGatewayToken()
+
     const clawdbotConfig: ClawdbotConfig = {
       gateway: {
         mode: DEFAULT_GATEWAY_MODE,
@@ -247,6 +269,15 @@ export class TenantManager {
               enabled: true,
             },
           },
+        },
+        // Auth token for incoming gateway requests
+        auth: {
+          mode: 'token',
+          token: gatewayToken,
+        },
+        // Remote token for agent-to-agent communication (must match auth.token)
+        remote: {
+          token: gatewayToken,
         },
       },
       // Multi-tenant security: Disable shell/exec access to prevent command execution
@@ -264,6 +295,8 @@ export class TenantManager {
             mode: 'paths-only',
             workspaceRoot: tenantDir,
             workspaceAccess: 'rw',
+            // Allow agents to see all sessions (not just ones they spawned)
+            sessionToolsVisibility: 'all',
           },
         },
       },
