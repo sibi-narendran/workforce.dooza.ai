@@ -87,6 +87,19 @@ interface ClawdbotConfig {
         // Session visibility: 'spawned' (only see own spawned) | 'all' (see all sessions)
         sessionToolsVisibility?: 'spawned' | 'all'
       }
+      // Memory flush before context compaction
+      compaction?: {
+        memoryFlush?: {
+          enabled: boolean
+          softThresholdTokens?: number
+        }
+      }
+      // Semantic memory search
+      memorySearch?: {
+        enabled: boolean
+        provider?: 'openai' | 'gemini' | 'local'
+        sources?: string[]
+      }
     }
     list?: Array<{
       id: string
@@ -94,6 +107,25 @@ interface ClawdbotConfig {
       workspace: string   // clawdbot uses this for resolveAgentWorkspaceDir()
       agentDir: string    // clawdbot uses this for resolveAgentDir() (sessions/memory)
     }>
+  }
+  // Internal hooks configuration
+  hooks?: {
+    internal?: {
+      enabled: boolean
+      entries?: {
+        [key: string]: {
+          enabled: boolean
+          env?: Record<string, string>
+        }
+      }
+    }
+  }
+  // Plugin system
+  plugins?: {
+    enabled: boolean
+    slots?: {
+      memory?: string
+    }
   }
 }
 
@@ -298,7 +330,36 @@ export class TenantManager {
             // Allow agents to see all sessions (not just ones they spawned)
             sessionToolsVisibility: 'all',
           },
+          // Memory flush before context compaction (saves to memory/YYYY-MM-DD.md)
+          compaction: {
+            memoryFlush: {
+              enabled: true,
+              softThresholdTokens: 4000,
+            },
+          },
+          // Semantic memory search over memory files
+          memorySearch: {
+            enabled: true,
+            provider: 'openai',
+            sources: ['memory'],
+          },
         },
+      },
+      // Internal hooks for session memory, audit logging, and startup tasks
+      hooks: {
+        internal: {
+          enabled: true,
+          entries: {
+            'session-memory': { enabled: true },
+            'command-logger': { enabled: true },
+            'boot-md': { enabled: true },
+          },
+        },
+      },
+      // Plugin system for memory-core
+      plugins: {
+        enabled: true,
+        slots: { memory: 'memory-core' },
       },
     }
     await writeFile(
