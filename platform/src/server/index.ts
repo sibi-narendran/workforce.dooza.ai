@@ -10,6 +10,7 @@ import { jobsRouter } from './routes/jobs.js'
 import { libraryRouter } from './routes/library.js'
 import { integrationsRouter } from './routes/integrations.js'
 import { brainRouter } from './routes/brain.js'
+import internalComposio from './routes/internal-composio.js'
 import { authMiddleware } from './middleware/auth.js'
 
 const app = new Hono()
@@ -58,6 +59,9 @@ app.get('/api', (c) => {
       conversations: '/api/conversations',
       jobs: '/api/jobs',
       integrations: '/api/integrations',
+      internal: {
+        composio: '/api/internal/composio',
+      },
     },
   })
 })
@@ -78,6 +82,9 @@ app.route('/api/jobs', jobsRouter)
 app.route('/api/library', libraryRouter)
 app.route('/api/integrations', integrationsRouter)
 app.route('/api/brain', brainRouter)
+
+// Internal API for Clawdbot plugin communication (no auth - internal network only)
+app.route('/api/internal/composio', internalComposio)
 
 // Auth /me endpoint needs middleware applied in auth.ts context
 app.get('/api/auth/me', authMiddleware, async (c) => {
