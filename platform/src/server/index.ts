@@ -11,6 +11,7 @@ import { libraryRouter } from './routes/library.js'
 import { integrationsRouter } from './routes/integrations.js'
 import { brainRouter } from './routes/brain.js'
 import internalComposio from './routes/internal-composio.js'
+import internalBrainStorage from './routes/internal-brain-storage.js'
 import { authMiddleware } from './middleware/auth.js'
 
 const app = new Hono()
@@ -61,6 +62,7 @@ app.get('/api', (c) => {
       integrations: '/api/integrations',
       internal: {
         composio: '/api/internal/composio',
+        brainStorage: '/api/internal/brain-storage',
       },
     },
   })
@@ -85,6 +87,9 @@ app.route('/api/brain', brainRouter)
 
 // Internal API for Clawdbot plugin communication (no auth - internal network only)
 app.route('/api/internal/composio', internalComposio)
+
+// Internal Brain Storage API (for AI agents)
+app.route('/api/internal/brain-storage', internalBrainStorage)
 
 // Auth /me endpoint needs middleware applied in auth.ts context
 app.get('/api/auth/me', authMiddleware, async (c) => {

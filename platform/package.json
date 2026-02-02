@@ -12,7 +12,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed-library": "tsx --env-file=.env src/db/migrate-library.ts",
-    "db:seed-integrations": "tsx --env-file=.env src/db/seed-providers.ts"
+    "db:seed-integrations": "tsx --env-file=.env src/db/seed-providers.ts",
+    "setup:brain": "tsx --env-file=.env scripts/setup-brain-storage.ts"
   },
   "dependencies": {
     "@composio/core": "^0.5.5",

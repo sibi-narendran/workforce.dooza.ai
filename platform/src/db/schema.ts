@@ -151,3 +151,21 @@ export type UserIntegration = typeof userIntegrations.$inferSelect
 export type NewUserIntegration = typeof userIntegrations.$inferInsert
 export type AgentIntegrationSkill = typeof agentIntegrationSkills.$inferSelect
 export type NewAgentIntegrationSkill = typeof agentIntegrationSkills.$inferInsert
+
+// Brain Files (AI-managed storage per tenant)
+export const brainFiles = pgTable('brain_files', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id).notNull(),
+  fileName: text('file_name').notNull(),
+  filePath: text('file_path').notNull(),
+  mimeType: text('mime_type'),
+  fileSize: integer('file_size'),
+  category: text('category').default('general'),
+  description: text('description'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+})
+
+export type BrainFile = typeof brainFiles.$inferSelect
+export type NewBrainFile = typeof brainFiles.$inferInsert
