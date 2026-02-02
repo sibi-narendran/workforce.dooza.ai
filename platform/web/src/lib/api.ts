@@ -543,13 +543,72 @@ export interface BrandExtractResponse {
     value_proposition: string | null
     target_audience: string | null
     industry: string | null
+    logo_url: string | null
   }
   error?: string
+}
+
+export interface BrainBrand {
+  id: string
+  tenantId: string
+  businessName: string | null
+  website: string | null
+  tagline: string | null
+  industry: string | null
+  targetAudience: string | null
+  description: string | null
+  valueProposition: string | null
+  primaryColor: string | null
+  secondaryColor: string | null
+  socialLinks: Record<string, string> | null
+  logoUrl: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BrainItem {
+  id: string
+  tenantId: string
+  type: string
+  title: string
+  fileName: string
+  filePath: string
+  mimeType: string | null
+  fileSize: number | null
+  createdAt: string
+  updatedAt: string
 }
 
 export const brainApi = {
   extractBrand: (token: string, url: string) =>
     api<BrandExtractResponse>('/brain/extract', { method: 'POST', body: { url }, token }),
+
+  // Brand persistence
+  getBrand: (token: string) =>
+    api<{ brand: BrainBrand | null }>('/brain/brand', { token }),
+
+  saveBrand: (token: string, data: Partial<Omit<BrainBrand, 'id' | 'tenantId' | 'createdAt' | 'updatedAt'>>) =>
+    api<{ success: boolean }>('/brain/brand', { method: 'POST', body: data, token }),
+
+  // Get signed URL for logo
+  getLogoUrl: (token: string) =>
+    api<{ url: string | null }>('/brain/logo-url', { token }),
+
+  // Brain items (files)
+  getItems: (token: string, type?: string) =>
+    api<{ items: BrainItem[] }>(`/brain/items${type ? `?type=${type}` : ''}`, { token }),
+
+  createItem: async (token: string, formData: FormData): Promise<{ success: boolean; item?: BrainItem; error?: string }> => {
+    const response = await fetch(`${API_BASE}/brain/items`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+    return response.json()
+  },
+
+  deleteItem: (token: string, id: string) =>
+    api<{ success: boolean }>(`/brain/items/${id}`, { method: 'DELETE', token }),
 }
 
 export { ApiError }

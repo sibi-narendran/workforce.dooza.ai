@@ -2,13 +2,19 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { zValidator } from '@hono/zod-validator'
 import * as cheerio from 'cheerio'
+import { eq, and, desc } from 'drizzle-orm'
 import { authMiddleware } from '../middleware/auth.js'
+import { tenantDirMiddleware } from '../middleware/tenant.js'
 import { openrouter } from '../../lib/openrouter.js'
+import { db } from '../../db/client.js'
+import { brainBrand, brainItems } from '../../db/schema.js'
+import * as storage from '../../lib/brain-storage.js'
 
 const brainRouter = new Hono()
 
-// Apply auth middleware to all routes
+// Apply auth and tenant middleware to all routes
 brainRouter.use('*', authMiddleware)
+brainRouter.use('*', tenantDirMiddleware)
 
 // Schema for extracting brand info
 const extractSchema = z.object({
@@ -25,6 +31,84 @@ interface ExtractedBrand {
   value_proposition: string | null
   target_audience: string | null
   industry: string | null
+  logo_url: string | null
+}
+
+/**
+ * Extract logo URL from HTML (prioritized search)
+ */
+function extractLogoUrl($: cheerio.CheerioAPI, baseUrl: string): string | null {
+  const candidates = [
+    // Apple touch icon (usually high quality)
+    $('link[rel="apple-touch-icon"]').attr('href'),
+    $('link[rel="apple-touch-icon-precomposed"]').attr('href'),
+    // Open Graph image
+    $('meta[property="og:image"]').attr('content'),
+    // Twitter image
+    $('meta[name="twitter:image"]').attr('content'),
+    // Favicon variations
+    $('link[rel="icon"][sizes="192x192"]').attr('href'),
+    $('link[rel="icon"][sizes="128x128"]').attr('href'),
+    $('link[rel="icon"]').attr('href'),
+    $('link[rel="shortcut icon"]').attr('href'),
+    // Logo in header
+    $('header img[class*="logo"], header img[id*="logo"]').attr('src'),
+    $('nav img[class*="logo"], nav img[id*="logo"]').attr('src'),
+    $('img[class*="logo"]').first().attr('src'),
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate) {
+      // Convert relative URL to absolute
+      try {
+        return new URL(candidate, baseUrl).href
+      } catch {
+        continue
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Download logo and upload to tenant storage
+ */
+async function downloadAndStoreLogo(
+  logoUrl: string,
+  tenantId: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(logoUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorkforceBot/1.0)' },
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) return null
+
+    const contentType = response.headers.get('content-type') || 'image/png'
+    const buffer = await response.arrayBuffer()
+
+    // Determine file extension
+    const ext = contentType.includes('svg') ? 'svg'
+      : contentType.includes('png') ? 'png'
+      : contentType.includes('gif') ? 'gif'
+      : contentType.includes('ico') ? 'ico'
+      : contentType.includes('webp') ? 'webp'
+      : 'png'
+
+    // Upload to storage (upsert replaces existing)
+    const { path } = await storage.uploadFile(
+      tenantId,
+      `brand-logo.${ext}`,
+      buffer,
+      { category: 'image', mimeType: contentType, upsert: true }
+    )
+
+    return path
+  } catch (error) {
+    console.warn('[Brain] Failed to download logo:', error)
+    return null
+  }
 }
 
 /**
@@ -71,6 +155,16 @@ brainRouter.post('/extract', zValidator('json', extractSchema), async (c) => {
       // Continue with HTML-only extraction
     }
 
+    // Extract logo URL from HTML
+    const tenantId = c.get('tenantId')
+    const logoSourceUrl = extractLogoUrl($, url)
+
+    // Download and store logo if found
+    let storedLogoPath: string | null = null
+    if (logoSourceUrl) {
+      storedLogoPath = await downloadAndStoreLogo(logoSourceUrl, tenantId)
+    }
+
     // Merge HTML and LLM extractions (LLM takes precedence for text fields)
     const extracted: ExtractedBrand = {
       business_name: llmExtracted.business_name || htmlExtracted.business_name || null,
@@ -82,6 +176,7 @@ brainRouter.post('/extract', zValidator('json', extractSchema), async (c) => {
       value_proposition: llmExtracted.value_proposition || null,
       target_audience: llmExtracted.target_audience || null,
       industry: llmExtracted.industry || null,
+      logo_url: storedLogoPath,
     }
 
     return c.json({
@@ -315,7 +410,218 @@ function createEmptyExtracted(): ExtractedBrand {
     value_proposition: null,
     target_audience: null,
     industry: null,
+    logo_url: null,
   }
 }
+
+// ============================================
+// Brand Persistence Endpoints
+// ============================================
+
+/**
+ * GET /brand - Load brand for tenant
+ */
+brainRouter.get('/brand', async (c) => {
+  const tenantId = c.get('tenantId')
+
+  const [brand] = await db.select().from(brainBrand)
+    .where(eq(brainBrand.tenantId, tenantId))
+    .limit(1)
+
+  return c.json({ brand: brand || null })
+})
+
+/**
+ * POST /brand - Save/update brand for tenant
+ */
+brainRouter.post('/brand', async (c) => {
+  const tenantId = c.get('tenantId')
+  const body = await c.req.json()
+
+  // Check if brand exists for this tenant
+  const [existing] = await db.select().from(brainBrand)
+    .where(eq(brainBrand.tenantId, tenantId))
+    .limit(1)
+
+  if (existing) {
+    // Update existing
+    await db.update(brainBrand)
+      .set({
+        businessName: body.businessName,
+        website: body.website,
+        tagline: body.tagline,
+        industry: body.industry,
+        targetAudience: body.targetAudience,
+        description: body.description,
+        valueProposition: body.valueProposition,
+        primaryColor: body.primaryColor,
+        secondaryColor: body.secondaryColor,
+        socialLinks: body.socialLinks,
+        logoUrl: body.logoUrl,
+        updatedAt: new Date(),
+      })
+      .where(eq(brainBrand.tenantId, tenantId))
+  } else {
+    // Insert new
+    await db.insert(brainBrand).values({
+      tenantId,
+      businessName: body.businessName,
+      website: body.website,
+      tagline: body.tagline,
+      industry: body.industry,
+      targetAudience: body.targetAudience,
+      description: body.description,
+      valueProposition: body.valueProposition,
+      primaryColor: body.primaryColor,
+      secondaryColor: body.secondaryColor,
+      socialLinks: body.socialLinks,
+      logoUrl: body.logoUrl,
+    })
+  }
+
+  return c.json({ success: true })
+})
+
+/**
+ * GET /logo-url - Get signed URL for tenant's logo
+ */
+brainRouter.get('/logo-url', async (c) => {
+  const tenantId = c.get('tenantId')
+
+  // Get brand to find logo path
+  const [brand] = await db.select().from(brainBrand)
+    .where(eq(brainBrand.tenantId, tenantId))
+    .limit(1)
+
+  if (!brand?.logoUrl) {
+    return c.json({ url: null })
+  }
+
+  // Get signed URL (1 hour expiry)
+  try {
+    const signedUrl = await storage.getSignedUrl(tenantId, brand.logoUrl)
+    return c.json({ url: signedUrl })
+  } catch (error) {
+    console.warn('[Brain] Failed to get logo URL:', error)
+    return c.json({ url: null })
+  }
+})
+
+// ============================================
+// Brain Items (File Upload) Endpoints
+// ============================================
+
+/**
+ * GET /items - List items for tenant
+ */
+brainRouter.get('/items', async (c) => {
+  const tenantId = c.get('tenantId')
+  const typeFilter = c.req.query('type')
+
+  let items
+  if (typeFilter) {
+    items = await db.select().from(brainItems)
+      .where(and(
+        eq(brainItems.tenantId, tenantId),
+        eq(brainItems.type, typeFilter)
+      ))
+      .orderBy(desc(brainItems.createdAt))
+  } else {
+    items = await db.select().from(brainItems)
+      .where(eq(brainItems.tenantId, tenantId))
+      .orderBy(desc(brainItems.createdAt))
+  }
+
+  return c.json({ items })
+})
+
+/**
+ * POST /items - Upload a file
+ */
+brainRouter.post('/items', async (c) => {
+  const tenantId = c.get('tenantId')
+
+  try {
+    const formData = await c.req.formData()
+    const file = formData.get('file') as File | null
+    const title = formData.get('title') as string
+    const type = formData.get('type') as string || 'file'
+
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400)
+    }
+
+    if (!title?.trim()) {
+      return c.json({ error: 'Title is required' }, 400)
+    }
+
+    // Determine file category based on mime type
+    let category: storage.FileCategory = 'general'
+    if (file.type.startsWith('image/')) {
+      category = 'image'
+    } else if (file.type === 'application/pdf' || file.type.includes('document')) {
+      category = 'document'
+    }
+
+    // Upload to storage
+    const arrayBuffer = await file.arrayBuffer()
+    const { path } = await storage.uploadFile(
+      tenantId,
+      file.name,
+      arrayBuffer,
+      { category, mimeType: file.type }
+    )
+
+    // Save to database
+    const [item] = await db.insert(brainItems).values({
+      tenantId,
+      type,
+      title: title.trim(),
+      fileName: file.name,
+      filePath: path,
+      mimeType: file.type,
+      fileSize: file.size,
+    }).returning()
+
+    return c.json({ success: true, item })
+  } catch (error) {
+    console.error('[Brain] Upload error:', error)
+    return c.json({
+      error: error instanceof Error ? error.message : 'Upload failed'
+    }, 500)
+  }
+})
+
+/**
+ * DELETE /items/:id - Delete an item
+ */
+brainRouter.delete('/items/:id', async (c) => {
+  const tenantId = c.get('tenantId')
+  const id = c.req.param('id')
+
+  // Verify ownership and get file path
+  const [item] = await db.select().from(brainItems)
+    .where(and(
+      eq(brainItems.id, id),
+      eq(brainItems.tenantId, tenantId)
+    ))
+
+  if (!item) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  // Delete file from storage
+  try {
+    await storage.deleteFile(tenantId, item.filePath)
+  } catch (error) {
+    console.warn('[Brain] Failed to delete storage file:', error)
+    // Continue to delete DB record even if storage delete fails
+  }
+
+  // Delete from database
+  await db.delete(brainItems).where(eq(brainItems.id, id))
+
+  return c.json({ success: true })
+})
 
 export { brainRouter }

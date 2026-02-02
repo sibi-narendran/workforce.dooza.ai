@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { employeesApi, conversationsApi, type Employee, ApiError } from '../lib/api'
 import { useAuthStore } from '../lib/store'
+import { WorkspaceButton, WorkspacePanel } from '../components/workspace'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -21,6 +22,8 @@ export function Chat() {
   const [sending, setSending] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
+  const [workspaceOpen, setWorkspaceOpen] = useState(false)
+  const [showRoutinesToast, setShowRoutinesToast] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -162,12 +165,31 @@ export function Chat() {
           {employee?.name?.[0]?.toUpperCase() || '?'}
         </div>
 
-        <div>
+        <div style={{ flex: 1 }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-strong)' }}>
             {employee?.name || 'Unknown'}
           </h2>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>{employee?.type}</div>
         </div>
+
+        <button
+          className="workspace-btn"
+          onClick={() => {
+            setShowRoutinesToast(true)
+            setTimeout(() => setShowRoutinesToast(false), 3000)
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          <span>Routines</span>
+        </button>
+
+        <WorkspaceButton
+          isOpen={workspaceOpen}
+          onToggle={() => setWorkspaceOpen(!workspaceOpen)}
+        />
       </header>
 
       {/* Messages */}
@@ -341,6 +363,23 @@ export function Chat() {
           </button>
         </div>
       </div>
+
+      <WorkspacePanel
+        isOpen={workspaceOpen}
+        onClose={() => setWorkspaceOpen(false)}
+        employee={employee}
+      />
+
+      {/* Routines Coming Soon Toast */}
+      {showRoutinesToast && (
+        <div className="toast">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          <span>Routines feature coming this week!</span>
+        </div>
+      )}
     </div>
   )
 }

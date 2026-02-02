@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '../lib/store'
-import { brainApi, BrandExtractResponse } from '../lib/api'
+import { brainApi, BrandExtractResponse, BrainBrand, BrainItem } from '../lib/api'
 
 type Tab = 'brand' | 'memory'
 
@@ -30,14 +30,93 @@ const initialForm: BrandForm = {
   social_links: {},
 }
 
+// Map API brand to form
+function mapBrandToForm(brand: BrainBrand): BrandForm {
+  return {
+    business_name: brand.businessName || '',
+    website: brand.website || '',
+    tagline: brand.tagline || '',
+    industry: brand.industry || '',
+    target_audience: brand.targetAudience || '',
+    description: brand.description || '',
+    value_proposition: brand.valueProposition || '',
+    primary_color: brand.primaryColor || '',
+    secondary_color: brand.secondaryColor || '',
+    social_links: brand.socialLinks || {},
+  }
+}
+
+// Map form to API brand (logoUrl is handled separately since it's not in the form)
+function mapFormToBrand(form: BrandForm): Partial<BrainBrand> {
+  return {
+    businessName: form.business_name || null,
+    website: form.website || null,
+    tagline: form.tagline || null,
+    industry: form.industry || null,
+    targetAudience: form.target_audience || null,
+    description: form.description || null,
+    valueProposition: form.value_proposition || null,
+    primaryColor: form.primary_color || null,
+    secondaryColor: form.secondary_color || null,
+    socialLinks: Object.keys(form.social_links).length > 0 ? form.social_links : null,
+  }
+}
+
 export function Brain() {
   const { session } = useAuthStore()
   const [activeTab, setActiveTab] = useState<Tab>('brand')
   const [form, setForm] = useState<BrandForm>(initialForm)
+  const [savedForm, setSavedForm] = useState<BrandForm>(initialForm)
+  const [hasChanges, setHasChanges] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Extract state
   const [extractUrl, setExtractUrl] = useState('')
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
   const [extractSuccess, setExtractSuccess] = useState(false)
+
+  // Files state
+  const [files, setFiles] = useState<BrainItem[]>([])
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadName, setUploadName] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
+
+  // Logo state
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [, setLogoPath] = useState<string | null>(null)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+
+  // Load brand, files, and logo on mount
+  useEffect(() => {
+    if (session?.accessToken) {
+      setIsLoading(true)
+      Promise.all([
+        brainApi.getBrand(session.accessToken),
+        brainApi.getItems(session.accessToken),
+        brainApi.getLogoUrl(session.accessToken),
+      ]).then(([brandRes, itemsRes, logoRes]) => {
+        if (brandRes.brand) {
+          const mapped = mapBrandToForm(brandRes.brand)
+          setForm(mapped)
+          setSavedForm(mapped)
+          setLogoPath(brandRes.brand.logoUrl)
+        }
+        setFiles(itemsRes.items || [])
+        if (logoRes.url) {
+          setLogoUrl(logoRes.url)
+        }
+      }).catch(console.error)
+        .finally(() => setIsLoading(false))
+    }
+  }, [session?.accessToken])
+
+  // Track changes
+  useEffect(() => {
+    setHasChanges(JSON.stringify(form) !== JSON.stringify(savedForm))
+  }, [form, savedForm])
 
   const handleExtract = async () => {
     if (!extractUrl.trim() || !session?.accessToken) return
@@ -69,7 +148,7 @@ export function Brain() {
 
       const { extracted } = result
 
-      setForm({
+      const extractedForm: BrandForm = {
         business_name: extracted.business_name || '',
         website: extracted.website || url,
         tagline: extracted.tagline || '',
@@ -80,7 +159,27 @@ export function Brain() {
         primary_color: extracted.colors?.primary || '',
         secondary_color: extracted.colors?.secondary || '',
         social_links: extracted.social_links || {},
-      })
+      }
+
+      setForm(extractedForm)
+
+      // Auto-save extracted data to DB (including logo path)
+      const brandData = {
+        ...mapFormToBrand(extractedForm),
+        logoUrl: extracted.logo_url,
+      }
+      await brainApi.saveBrand(session.accessToken, brandData)
+      setSavedForm(extractedForm)
+
+      // Update logo state if a logo was extracted
+      if (extracted.logo_url) {
+        setLogoPath(extracted.logo_url)
+        // Fetch signed URL for display
+        const logoRes = await brainApi.getLogoUrl(session.accessToken)
+        if (logoRes.url) {
+          setLogoUrl(logoRes.url)
+        }
+      }
 
       setExtractSuccess(true)
       setTimeout(() => setExtractSuccess(false), 3000)
@@ -91,12 +190,115 @@ export function Brain() {
     }
   }
 
+  const handleSave = async () => {
+    if (!session?.accessToken) return
+
+    setIsSaving(true)
+    try {
+      await brainApi.saveBrand(session.accessToken, mapFormToBrand(form))
+      setSavedForm(form)
+      setHasChanges(false)
+    } catch (err) {
+      console.error('Save failed:', err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!uploadFile || !uploadName.trim() || !session?.accessToken) return
+
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', uploadFile)
+      formData.append('title', uploadName.trim())
+      formData.append('type', uploadFile.type.startsWith('image') ? 'image' : 'file')
+
+      const result = await brainApi.createItem(session.accessToken, formData)
+      if (result.item) {
+        setFiles(prev => [result.item!, ...prev])
+      }
+
+      setShowUploadModal(false)
+      setUploadFile(null)
+      setUploadName('')
+    } catch (err) {
+      console.error('Upload failed:', err)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleDeleteFile = async (id: string) => {
+    if (!session?.accessToken) return
+
+    try {
+      await brainApi.deleteItem(session.accessToken, id)
+      setFiles(prev => prev.filter(f => f.id !== id))
+    } catch (err) {
+      console.error('Delete failed:', err)
+    }
+  }
+
   const updateField = (field: keyof BrandForm, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !session?.accessToken) return
+
+    setIsUploadingLogo(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('title', 'Brand Logo')
+      formData.append('type', 'image')
+
+      // Upload to items (this will store in brain bucket)
+      const result = await brainApi.createItem(session.accessToken, formData)
+      if (result.item) {
+        // Save the logo path to brand
+        await brainApi.saveBrand(session.accessToken, {
+          ...mapFormToBrand(form),
+          logoUrl: result.item.filePath,
+        })
+        setLogoPath(result.item.filePath)
+
+        // Fetch signed URL for display
+        const logoRes = await brainApi.getLogoUrl(session.accessToken)
+        if (logoRes.url) {
+          setLogoUrl(logoRes.url)
+        }
+      }
+    } catch (err) {
+      console.error('Logo upload failed:', err)
+    } finally {
+      setIsUploadingLogo(false)
+    }
+
+    e.target.value = ''
+  }
+
+  const getFileIcon = (type: string, mimeType: string | null) => {
+    if (type === 'image' || mimeType?.startsWith('image/')) return '🖼️'
+    if (mimeType?.includes('pdf')) return '📕'
+    if (mimeType?.includes('video')) return '🎬'
+    if (mimeType?.includes('audio')) return '🎵'
+    return '📄'
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ padding: 32, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <div className="loading" style={{ width: 32, height: 32 }} />
+      </div>
+    )
+  }
+
   return (
-    <div style={{ padding: 32, height: '100%', overflowY: 'auto' }}>
+    <div style={{ padding: 32, height: '100%', overflowY: 'auto', paddingBottom: hasChanges ? 100 : 32 }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: 'var(--text-strong)' }}>
@@ -121,7 +323,7 @@ export function Brain() {
           onClick={() => setActiveTab('memory')}
           style={{ padding: '8px 16px' }}
         >
-          Memory
+          Files
         </button>
       </div>
 
@@ -186,10 +388,89 @@ export function Brain() {
                   fontSize: 13,
                 }}
               >
-                Brand info extracted successfully!
+                Brand info extracted and saved!
               </div>
             )}
           </div>
+
+          {/* Logo Section */}
+          <div className="card" style={{ marginBottom: 24 }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: 'var(--text-strong)' }}>
+              Logo
+            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt="Brand Logo"
+                  style={{
+                    width: 80,
+                    height: 80,
+                    objectFit: 'contain',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg)',
+                    padding: 8,
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--muted)',
+                  fontSize: 32,
+                }}>
+                  ?
+                </div>
+              )}
+              <div>
+                <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
+                  {logoUrl ? 'Extracted from website' : 'No logo found'}
+                </p>
+                {!logoUrl && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ marginTop: 8, padding: '4px 12px', fontSize: 12 }}
+                    onClick={() => document.getElementById('logo-input')?.click()}
+                    disabled={isUploadingLogo}
+                  >
+                    {isUploadingLogo ? (
+                      <div className="loading" style={{ width: 14, height: 14 }} />
+                    ) : (
+                      'Upload Logo'
+                    )}
+                  </button>
+                )}
+                {logoUrl && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ marginTop: 8, padding: '4px 12px', fontSize: 12 }}
+                    onClick={() => document.getElementById('logo-input')?.click()}
+                    disabled={isUploadingLogo}
+                  >
+                    {isUploadingLogo ? (
+                      <div className="loading" style={{ width: 14, height: 14 }} />
+                    ) : (
+                      'Change Logo'
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Hidden logo input */}
+          <input
+            id="logo-input"
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={handleLogoUpload}
+          />
 
           {/* Brand Form */}
           <div className="card">
@@ -372,25 +653,203 @@ export function Brain() {
                 </div>
               )}
             </div>
-
-            <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--muted)' }}>
-              Note: Brand information is currently stored locally and will be used to enhance your AI employees' responses. Database persistence coming soon.
-            </div>
           </div>
         </div>
       ) : (
-        <div className="card" style={{ textAlign: 'center', padding: 60 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--muted)' }}>
-              <path d="M12 4.5a2.5 2.5 0 0 0-4.96-.46 2.5 2.5 0 0 0-1.98 3 2.5 2.5 0 0 0-1.32 4.24 3 3 0 0 0 .34 5.58 2.5 2.5 0 0 0 2.96 3.08A2.5 2.5 0 0 0 12 20V4.5z" />
-              <path d="M12 4.5a2.5 2.5 0 0 1 4.96-.46 2.5 2.5 0 0 1 1.98 3 2.5 2.5 0 0 1 1.32 4.24 3 3 0 0 1-.34 5.58 2.5 2.5 0 0 1-2.96 3.08A2.5 2.5 0 0 1 12 20V4.5z" />
-            </svg>
+        <div>
+          {/* Files List */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-strong)' }}>
+                Uploaded Files
+              </h3>
+              <button
+                className="btn"
+                onClick={() => document.getElementById('file-input')?.click()}
+              >
+                + Add File
+              </button>
+            </div>
+
+            {files.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40 }}>
+                <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.5 }}>📁</div>
+                <p style={{ margin: 0, color: 'var(--muted)' }}>
+                  No files uploaded yet. Add files for your AI employees to reference.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {files.map(file => (
+                  <div
+                    key={file.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '12px 16px',
+                      background: 'var(--bg)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <span style={{ fontSize: 20 }}>{getFileIcon(file.type, file.mimeType)}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, color: 'var(--text-strong)' }}>{file.title}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                        {file.fileName}
+                        {file.fileSize && ` • ${(file.fileSize / 1024).toFixed(1)} KB`}
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => handleDeleteFile(file.id)}
+                      style={{ padding: '6px 12px', fontSize: 12, color: 'var(--danger)' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <h3 style={{ margin: '0 0 8px', color: 'var(--text-strong)' }}>Memory Coming Soon</h3>
-          <p style={{ margin: 0, color: 'var(--muted)', maxWidth: 400, marginInline: 'auto' }}>
-            Configure long-term memory and context for your AI employees. This feature is under development.
-          </p>
         </div>
+      )}
+
+      {/* Hidden file input */}
+      <input
+        id="file-input"
+        type="file"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) {
+            setUploadFile(file)
+            setUploadName(file.name.split('.').slice(0, -1).join('.') || file.name)
+            setShowUploadModal(true)
+          }
+          e.target.value = ''
+        }}
+      />
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowUploadModal(false)}
+        >
+          <div
+            className="card"
+            style={{ width: 400, maxWidth: '90vw' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 600, color: 'var(--text-strong)' }}>
+              Name this file
+            </h3>
+            <p style={{ margin: '0 0 16px', color: 'var(--muted)', fontSize: 13 }}>
+              Give it a descriptive name so AI can find it easily
+            </p>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>
+                Display Name
+              </label>
+              <input
+                className="input"
+                value={uploadName}
+                onChange={(e) => setUploadName(e.target.value)}
+                placeholder="e.g. Company Logo, Product Brochure"
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleUpload()}
+              />
+            </div>
+
+            <div style={{ padding: '12px', background: 'var(--bg)', borderRadius: 'var(--radius-md)', marginBottom: 20 }}>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>Selected file:</div>
+              <div style={{ fontWeight: 500, marginTop: 4 }}>{uploadFile?.name}</div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => setShowUploadModal(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn"
+                onClick={handleUpload}
+                disabled={isUploading || !uploadName.trim()}
+              >
+                {isUploading ? (
+                  <div className="loading" style={{ width: 18, height: 18 }} />
+                ) : (
+                  'Upload'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Save Button */}
+      {hasChanges && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--bg-card)',
+            padding: '12px 24px',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            display: 'flex',
+            gap: 16,
+            alignItems: 'center',
+            border: '1px solid var(--border)',
+            zIndex: 100,
+          }}
+        >
+          <span style={{ color: 'var(--muted)', fontSize: 13 }}>You have unsaved changes</span>
+          <button className="btn" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <div className="loading" style={{ width: 18, height: 18 }} />
+            ) : (
+              'Save'
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Floating + button for brand tab */}
+      {activeTab === 'brand' && (
+        <button
+          className="btn"
+          onClick={() => document.getElementById('file-input')?.click()}
+          style={{
+            position: 'fixed',
+            bottom: hasChanges ? 80 : 24,
+            right: 24,
+            borderRadius: '50%',
+            width: 56,
+            height: 56,
+            fontSize: 24,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            zIndex: 99,
+          }}
+          title="Upload file"
+        >
+          +
+        </button>
       )}
     </div>
   )

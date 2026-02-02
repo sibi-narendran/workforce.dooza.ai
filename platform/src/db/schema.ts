@@ -169,3 +169,41 @@ export const brainFiles = pgTable('brain_files', {
 
 export type BrainFile = typeof brainFiles.$inferSelect
 export type NewBrainFile = typeof brainFiles.$inferInsert
+
+// Brain Brand (single row per tenant for brand identity)
+export const brainBrand = pgTable('brain_brand', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id).notNull().unique(),
+  businessName: text('business_name'),
+  website: text('website'),
+  tagline: text('tagline'),
+  industry: text('industry'),
+  targetAudience: text('target_audience'),
+  description: text('description'),
+  valueProposition: text('value_proposition'),
+  primaryColor: text('primary_color'),
+  secondaryColor: text('secondary_color'),
+  socialLinks: jsonb('social_links').default({}),
+  logoUrl: text('logo_url'), // Path in brain storage bucket
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+})
+
+// Brain Items (uploaded files for LLM access)
+export const brainItems = pgTable('brain_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id).notNull(),
+  type: text('type').notNull(), // 'image', 'video', 'document', 'file'
+  title: text('title').notNull(), // user-provided name for LLM retrieval
+  fileName: text('file_name').notNull(), // original file name
+  filePath: text('file_path').notNull(), // path in brain bucket
+  mimeType: text('mime_type'),
+  fileSize: integer('file_size'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+})
+
+export type BrainBrand = typeof brainBrand.$inferSelect
+export type NewBrainBrand = typeof brainBrand.$inferInsert
+export type BrainItem = typeof brainItems.$inferSelect
+export type NewBrainItem = typeof brainItems.$inferInsert
