@@ -529,4 +529,27 @@ export interface UserConnection {
   connectedAt: string
 }
 
+// Brain
+export interface BrandExtractResponse {
+  success: boolean
+  url: string
+  extracted: {
+    business_name: string | null
+    website: string | null
+    tagline: string | null
+    colors: { primary?: string; secondary?: string } | null
+    social_links: Record<string, string> | null
+    description: string | null
+    value_proposition: string | null
+    target_audience: string | null
+    industry: string | null
+  }
+  error?: string
+}
+
+export const brainApi = {
+  extractBrand: (token: string, url: string) =>
+    api<BrandExtractResponse>('/brain/extract', { method: 'POST', body: { url }, token }),
+}
+
 export { ApiError }

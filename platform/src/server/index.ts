@@ -9,6 +9,7 @@ import { conversationsRouter } from './routes/conversations.js'
 import { jobsRouter } from './routes/jobs.js'
 import { libraryRouter } from './routes/library.js'
 import { integrationsRouter } from './routes/integrations.js'
+import { brainRouter } from './routes/brain.js'
 import { authMiddleware } from './middleware/auth.js'
 
 const app = new Hono()
@@ -76,6 +77,7 @@ app.route('/api/conversations', conversationsRouter)
 app.route('/api/jobs', jobsRouter)
 app.route('/api/library', libraryRouter)
 app.route('/api/integrations', integrationsRouter)
+app.route('/api/brain', brainRouter)
 
 // Auth /me endpoint needs middleware applied in auth.ts context
 app.get('/api/auth/me', authMiddleware, async (c) => {

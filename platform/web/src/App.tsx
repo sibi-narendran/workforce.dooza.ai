@@ -12,6 +12,7 @@ import { Chat } from './pages/Chat'
 import { Jobs } from './pages/Jobs'
 import { Library } from './pages/Library'
 import { Integrations } from './pages/Integrations'
+import { Brain } from './pages/Brain'
 import {
   QUERY_STALE_TIME_MS,
   QUERY_GC_TIME_MS,
@@ -130,6 +131,7 @@ export function App() {
             <Route path="employees/:id" element={<EmployeeDetail />} />
             <Route path="employees/:id/chat" element={<Chat />} />
             <Route path="jobs" element={<Jobs />} />
+            <Route path="brain" element={<Brain />} />
           </Route>
         </Routes>
       </BrowserRouter>
