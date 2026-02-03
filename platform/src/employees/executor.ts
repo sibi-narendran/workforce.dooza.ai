@@ -72,8 +72,8 @@ export async function executeEmployee(
     // Use the agent's slug from library
     const agentSlug = installedResult.agent.slug
 
-    // Session key for tenant isolation
-    const sessionKey = `tenant-${tenantId}-${employeeId}`
+    // Session key for tenant isolation - includes agent prefix for proper routing
+    const sessionKey = `agent:${agentSlug}:tenant-${tenantId}-${employeeId}`
 
     // Map thinking level names
     const thinkingLevel = options?.thinking || 'medium'
