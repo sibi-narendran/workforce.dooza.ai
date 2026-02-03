@@ -143,7 +143,13 @@ brainRouter.post('/extract', zValidator('json', extractSchema), async (c) => {
     // Extract basic info from HTML
     const htmlExtracted = extractFromHtml($, url)
 
+    // Extract logo URL BEFORE getPageText (which removes nav/header elements)
+    const tenantId = c.get('tenantId')
+    const logoSourceUrl = extractLogoUrl($, url)
+    console.log('[Brain] Logo source URL found:', logoSourceUrl)
+
     // Get page text for LLM analysis (truncated to ~4000 chars)
+    // NOTE: This modifies the DOM by removing nav/header/etc
     const pageText = getPageText($)
 
     // Use LLM to extract deeper insights
@@ -155,14 +161,11 @@ brainRouter.post('/extract', zValidator('json', extractSchema), async (c) => {
       // Continue with HTML-only extraction
     }
 
-    // Extract logo URL from HTML
-    const tenantId = c.get('tenantId')
-    const logoSourceUrl = extractLogoUrl($, url)
-
     // Download and store logo if found
     let storedLogoPath: string | null = null
     if (logoSourceUrl) {
       storedLogoPath = await downloadAndStoreLogo(logoSourceUrl, tenantId)
+      console.log('[Brain] Logo stored at:', storedLogoPath)
     }
 
     // Merge HTML and LLM extractions (LLM takes precedence for text fields)
