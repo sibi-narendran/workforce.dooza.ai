@@ -321,6 +321,9 @@ export class TenantManager {
           model: {
             primary: model,
           },
+          // Web-chat only: Disable message ID hints and reply tags (no threading needed)
+          includeMessageIdHints: false,
+          promptMode: 'minimal',
           // Multi-tenant security: Enable sandbox mode for path validation
           // workspaceRoot covers entire tenant directory so agents can access their files in /agents/{slug}/
           sandbox: {

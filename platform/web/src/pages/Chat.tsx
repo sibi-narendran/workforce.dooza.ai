@@ -1,31 +1,42 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { employeesApi, conversationsApi, type Employee, ApiError } from '../lib/api'
+import { employeesApi, type Employee, ApiError } from '../lib/api'
 import { useAuthStore } from '../lib/store'
 import { WorkspaceButton, WorkspacePanel } from '../components/workspace'
-
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-  isError?: boolean
-  canRetry?: boolean
-}
+import { StreamingClient, sendStreamingChat } from '../lib/streaming'
+import { useChatStore, useChatMessages, useStreamingContent, useIsStreaming } from '../lib/chat-store'
 
 export function Chat() {
   const { id } = useParams<{ id: string }>()
   const { session } = useAuthStore()
   const [employee, setEmployee] = useState<Employee | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
-  const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [showRoutinesToast, setShowRoutinesToast] = useState(false)
+  const [isConnected, setIsConnected] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const streamingClientRef = useRef<StreamingClient | null>(null)
 
+  // Chat store
+  const messages = useChatMessages(id || '')
+  const streamingContent = useStreamingContent(id || '')
+  const isStreaming = useIsStreaming(id || '')
+  const {
+    initChat,
+    addUserMessage,
+    startStreaming,
+  } = useChatStore()
+
+  // Initialize chat state
+  useEffect(() => {
+    if (id) {
+      initChat(id)
+    }
+  }, [id, initChat])
+
+  // Load employee data
   useEffect(() => {
     if (!session?.accessToken || !id) return
 
@@ -39,78 +50,71 @@ export function Chat() {
       .finally(() => setLoading(false))
   }, [session?.accessToken, id])
 
+  // Setup streaming client
+  // Note: Using useChatStore.getState() in callbacks to avoid effect re-runs
+  // when store actions change (Zustand's recommended pattern for non-reactive access)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const sendMessage = useCallback(async (messageText: string) => {
     if (!session?.accessToken || !id) return
 
-    const userMessage: Message = {
-      role: 'user',
-      content: messageText,
-      timestamp: new Date(),
-    }
+    const client = new StreamingClient(id, session.accessToken, {
+      onToken: (token) => {
+        useChatStore.getState().appendToken(id, token)
+      },
+      onComplete: (message, _runId, usage) => {
+        useChatStore.getState().finalizeMessage(id, message, usage)
+      },
+      onError: (error, _runId) => {
+        useChatStore.getState().setError(id, _runId, `Error: ${error}`)
+      },
+      onAborted: () => {
+        useChatStore.getState().abortStreaming(id)
+      },
+      onConnected: (sessionKey) => {
+        console.log('[Chat] SSE connected, session:', sessionKey)
+        setIsConnected(true)
+      },
+      onDisconnected: () => {
+        console.log('[Chat] SSE disconnected')
+        setIsConnected(false)
+      },
+    })
 
-    // Optimistic update - add user message immediately
-    setMessages((prev) => [...prev, userMessage])
-    setSending(true)
-    setLastError(null)
-    setPendingMessage(messageText)
+    client.connect()
+    streamingClientRef.current = client
 
-    try {
-      const response = await conversationsApi.chat(session.accessToken, id, messageText)
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: response.response,
-        timestamp: new Date(),
-      }
-
-      setMessages((prev) => [...prev, assistantMessage])
-      setPendingMessage(null)
-    } catch (error) {
-      const errorMsg = error instanceof ApiError ? error.message : 'Failed to get response'
-      setLastError(errorMsg)
-
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: `Error: ${errorMsg}`,
-        timestamp: new Date(),
-        isError: true,
-        canRetry: true,
-      }
-      setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setSending(false)
+    return () => {
+      client.disconnect()
+      streamingClientRef.current = null
     }
   }, [session?.accessToken, id])
 
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, streamingContent])
+
   const handleSend = useCallback(async () => {
-    if (!input.trim() || sending) return
+    if (!input.trim() || isStreaming || !session?.accessToken || !id) return
+
     const messageText = input.trim()
     setInput('')
-    await sendMessage(messageText)
-  }, [input, sending, sendMessage])
+    setLastError(null)
 
-  const handleRetry = useCallback(async () => {
-    if (!pendingMessage || sending) return
+    // Add user message to store
+    addUserMessage(id, messageText)
 
-    // Remove the last error message
-    setMessages((prev) => {
-      const newMessages = [...prev]
-      if (newMessages.length > 0 && newMessages[newMessages.length - 1].isError) {
-        newMessages.pop()
-      }
-      // Also remove the user message that failed
-      if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'user') {
-        newMessages.pop()
-      }
-      return newMessages
-    })
+    try {
+      // Send message via streaming endpoint
+      const { runId } = await sendStreamingChat(session.accessToken, id, messageText)
 
-    await sendMessage(pendingMessage)
-  }, [pendingMessage, sending, sendMessage])
+      // Mark as streaming - events will come via SSE
+      startStreaming(id, runId)
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to send message'
+      setLastError(errorMsg)
+      useChatStore.getState().setError(id, 'send-error', `Error: ${errorMsg}`)
+    }
+  }, [input, isStreaming, session?.accessToken, id, addUserMessage, startStreaming])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -169,7 +173,18 @@ export function Chat() {
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-strong)' }}>
             {employee?.name || 'Unknown'}
           </h2>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{employee?.type}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>{employee?.type}</span>
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: isConnected ? '#22c55e' : '#ef4444',
+              }}
+              title={isConnected ? 'Connected' : 'Disconnected'}
+            />
+          </div>
         </div>
 
         <button
@@ -203,7 +218,7 @@ export function Chat() {
           gap: 16,
         }}
       >
-        {messages.length === 0 ? (
+        {messages.length === 0 && !streamingContent ? (
           <div
             style={{
               flex: 1,
@@ -238,85 +253,113 @@ export function Chat() {
             <p style={{ margin: 0, maxWidth: 400 }}>{employee?.description}</p>
           </div>
         ) : (
-          messages.map((msg, i) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              }}
-            >
+          <>
+            {messages.map((msg) => (
               <div
+                key={msg.id}
                 style={{
-                  maxWidth: '70%',
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-lg)',
-                  background: msg.isError
-                    ? 'rgba(239, 68, 68, 0.1)'
-                    : msg.role === 'user'
-                      ? 'var(--accent)'
-                      : 'var(--card)',
-                  color: msg.isError
-                    ? '#ef4444'
-                    : msg.role === 'user'
-                      ? 'white'
-                      : 'var(--text)',
-                  border: msg.isError
-                    ? '1px solid rgba(239, 68, 68, 0.3)'
-                    : msg.role === 'assistant'
-                      ? '1px solid var(--border)'
-                      : 'none',
+                  display: 'flex',
+                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
                 }}
               >
-                <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{msg.content}</div>
                 <div
                   style={{
-                    fontSize: 10,
-                    marginTop: 8,
-                    opacity: 0.7,
+                    maxWidth: '70%',
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-lg)',
+                    background: msg.isError
+                      ? 'rgba(239, 68, 68, 0.1)'
+                      : msg.role === 'user'
+                        ? 'var(--accent)'
+                        : 'var(--card)',
+                    color: msg.isError
+                      ? '#ef4444'
+                      : msg.role === 'user'
+                        ? 'white'
+                        : 'var(--text)',
+                    border: msg.isError
+                      ? '1px solid rgba(239, 68, 68, 0.3)'
+                      : msg.role === 'assistant'
+                        ? '1px solid var(--border)'
+                        : 'none',
                   }}
                 >
-                  {msg.timestamp.toLocaleTimeString()}
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{msg.content}</div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      marginTop: 8,
+                      opacity: 0.7,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span>{msg.timestamp.toLocaleTimeString()}</span>
+                    {msg.usage && (
+                      <span style={{ marginLeft: 8 }}>
+                        {msg.usage.inputTokens + msg.usage.outputTokens} tokens
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+
+            {/* Streaming content indicator */}
+            {streamingContent && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div
+                  style={{
+                    maxWidth: '70%',
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-lg)',
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                    {streamingContent}
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 8,
+                        height: 16,
+                        background: 'var(--accent)',
+                        marginLeft: 2,
+                        animation: 'blink 1s infinite',
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading indicator when streaming but no content yet */}
+            {isStreaming && !streamingContent && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-lg)',
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <div className="loading" style={{ width: 16, height: 16 }} />
+                  <span style={{ color: 'var(--muted)', fontSize: 13 }}>Thinking...</span>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
-        {sending && (
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div
-              style={{
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-lg)',
-                background: 'var(--card)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <div className="loading" style={{ width: 16, height: 16 }} />
-              <span style={{ color: 'var(--muted)', fontSize: 13 }}>Thinking...</span>
-            </div>
-          </div>
-        )}
-
-        {lastError && !sending && pendingMessage && (
+        {lastError && !isStreaming && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
-            <button
-              className="btn"
-              onClick={handleRetry}
-              style={{
-                padding: '8px 16px',
-                fontSize: 13,
-                background: 'var(--accent-subtle)',
-                color: 'var(--accent)',
-                border: '1px solid var(--accent)',
-              }}
-            >
-              Retry
-            </button>
+            <span style={{ color: '#ef4444', fontSize: 13 }}>{lastError}</span>
           </div>
         )}
 
@@ -356,10 +399,10 @@ export function Chat() {
           <button
             className="btn"
             onClick={handleSend}
-            disabled={!input.trim() || sending}
+            disabled={!input.trim() || isStreaming}
             style={{ padding: '12px 20px' }}
           >
-            {sending ? <div className="loading" style={{ width: 18, height: 18 }} /> : 'Send'}
+            {isStreaming ? <div className="loading" style={{ width: 18, height: 18 }} /> : 'Send'}
           </button>
         </div>
       </div>
@@ -380,6 +423,14 @@ export function Chat() {
           <span>Routines feature coming this week!</span>
         </div>
       )}
+
+      {/* Cursor blink animation */}
+      <style>{`
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+      `}</style>
     </div>
   )
 }

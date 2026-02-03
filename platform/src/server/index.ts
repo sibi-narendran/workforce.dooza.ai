@@ -10,9 +10,11 @@ import { jobsRouter } from './routes/jobs.js'
 import { libraryRouter } from './routes/library.js'
 import { integrationsRouter } from './routes/integrations.js'
 import { brainRouter } from './routes/brain.js'
+import { streamRouter } from './routes/stream.js'
 import internalComposio from './routes/internal-composio.js'
 import internalBrainStorage from './routes/internal-brain-storage.js'
 import { authMiddleware } from './middleware/auth.js'
+import { sseManager, gatewayPool } from '../streaming/index.js'
 
 const app = new Hono()
 
@@ -60,6 +62,7 @@ app.get('/api', (c) => {
       conversations: '/api/conversations',
       jobs: '/api/jobs',
       integrations: '/api/integrations',
+      stream: '/api/stream',
       internal: {
         composio: '/api/internal/composio',
         brainStorage: '/api/internal/brain-storage',
@@ -76,6 +79,7 @@ app.use('/api/tenant/*', authMiddleware)
 // Note: /api/employees list is public, other employee routes use router-level auth
 app.use('/api/conversations/*', authMiddleware)
 app.use('/api/jobs/*', authMiddleware)
+// Note: /api/stream handles its own auth (supports query param for SSE)
 
 app.route('/api/tenant', tenantsRouter)
 app.route('/api/employees', employeesRouter)
@@ -84,6 +88,7 @@ app.route('/api/jobs', jobsRouter)
 app.route('/api/library', libraryRouter)
 app.route('/api/integrations', integrationsRouter)
 app.route('/api/brain', brainRouter)
+app.route('/api/stream', streamRouter)
 
 // Internal API for Clawdbot plugin communication (no auth - internal network only)
 app.route('/api/internal/composio', internalComposio)
@@ -112,6 +117,19 @@ app.onError((err, c) => {
     },
     500
   )
+})
+
+// Graceful shutdown handling for streaming infrastructure
+process.on('SIGTERM', () => {
+  console.log('[Server] SIGTERM received, shutting down streaming...')
+  sseManager.stopPingInterval()
+  gatewayPool.shutdown()
+})
+
+process.on('SIGINT', () => {
+  console.log('[Server] SIGINT received, shutting down streaming...')
+  sseManager.stopPingInterval()
+  gatewayPool.shutdown()
 })
 
 export { app }

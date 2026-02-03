@@ -311,6 +311,14 @@ export const conversationsApi = {
       token,
     }),
 
+  // Streaming chat - returns immediately with runId, events delivered via SSE
+  chatStream: (token: string, employeeId: string, message: string, thinking?: string) =>
+    api<{ runId: string; sessionKey: string; status: 'streaming' }>(`/conversations/employee/${employeeId}/chat?stream=true`, {
+      method: 'POST',
+      body: { message, thinking },
+      token,
+    }),
+
   messages: (token: string, conversationId: string) =>
     api<{ conversation: Conversation; messages: Message[] }>(`/conversations/${conversationId}/messages`, { token }),
 

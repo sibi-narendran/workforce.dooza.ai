@@ -1,5 +1,9 @@
 /**
  * Conversations Router - Chat with employees (installed agents from library)
+ *
+ * Supports both synchronous and streaming modes:
+ * - POST /employee/:id/chat - Synchronous (waits for full response)
+ * - POST /employee/:id/chat?stream=true - Streaming (returns runId immediately)
  */
 import { Hono } from 'hono'
 import { z } from 'zod'
@@ -10,6 +14,7 @@ import { eq, and, desc } from 'drizzle-orm'
 import { authMiddleware } from '../middleware/auth.js'
 import { tenantDirMiddleware } from '../middleware/tenant.js'
 import { executeEmployee } from '../../employees/executor.js'
+import { executeEmployeeStreaming } from '../../employees/executor-streaming.js'
 
 const conversationsRouter = new Hono()
 
@@ -68,11 +73,16 @@ conversationsRouter.get('/', async (c) => {
 
 /**
  * Start a new chat or continue existing
+ *
+ * Supports streaming mode with ?stream=true query parameter.
+ * In streaming mode, returns { runId, sessionKey, status: 'streaming' } immediately.
+ * The actual response is delivered via SSE at /api/stream/employee/:id
  */
 conversationsRouter.post('/employee/:employeeId/chat', zValidator('json', chatSchema), async (c) => {
   const tenantId = c.get('tenantId')
   const employeeId = c.req.param('employeeId')
   const { message, thinking } = c.req.valid('json')
+  const stream = c.req.query('stream') === 'true'
 
   // Verify employee access
   const access = await verifyEmployeeAccess(employeeId, tenantId)
@@ -81,6 +91,24 @@ conversationsRouter.post('/employee/:employeeId/chat', zValidator('json', chatSc
   }
 
   try {
+    // Streaming mode: return immediately with runId
+    if (stream) {
+      const result = await executeEmployeeStreaming(tenantId, employeeId, message, {
+        thinking: thinking || 'medium',
+      })
+
+      if (!result.success) {
+        return c.json({ error: result.error || 'Failed to start streaming' }, 500)
+      }
+
+      return c.json({
+        runId: result.runId,
+        sessionKey: result.sessionKey,
+        status: 'streaming',
+      })
+    }
+
+    // Synchronous mode: wait for full response
     // Generate session key for this conversation
     const sessionKey = `session-${Date.now()}`
 
