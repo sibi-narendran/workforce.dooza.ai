@@ -45,7 +45,7 @@ export interface StreamingCallbacks {
 export class StreamingClient {
   private eventSource: EventSource | null = null
   private employeeId: string
-  private token: string
+  private getToken: () => Promise<string>
   private callbacks: StreamingCallbacks
   private reconnectAttempt = 0
   private maxReconnectAttempts = 10
@@ -53,21 +53,34 @@ export class StreamingClient {
   private isManualClose = false
   private destroyed = false
 
-  constructor(employeeId: string, token: string, callbacks: StreamingCallbacks = {}) {
+  constructor(employeeId: string, getToken: () => Promise<string>, callbacks: StreamingCallbacks = {}) {
     this.employeeId = employeeId
-    this.token = token
+    this.getToken = getToken
     this.callbacks = callbacks
   }
 
   /**
    * Connect to the SSE stream
    */
-  connect(): void {
+  async connect(): Promise<void> {
     if (this.destroyed) return
     if (this.eventSource) return
 
     this.isManualClose = false
-    const url = `${API_BASE}/stream/employee/${this.employeeId}?token=${encodeURIComponent(this.token)}&tabId=${TAB_ID}`
+
+    let token: string
+    try {
+      token = await this.getToken()
+    } catch {
+      console.error('[StreamingClient] Failed to get token')
+      this.callbacks.onDisconnected?.()
+      return
+    }
+
+    // Re-check after async gap — disconnect() may have been called while awaiting
+    if (this.destroyed || this.eventSource) return
+
+    const url = `${API_BASE}/stream/employee/${this.employeeId}?token=${encodeURIComponent(token)}&tabId=${TAB_ID}`
 
     // Note: EventSource doesn't support custom headers, so we pass token as query param
     // The backend should accept both Authorization header and query param

@@ -21,6 +21,7 @@ import {
   RETRY_MAX_DELAY_MS,
   HTTP_CLIENT_ERROR_MIN,
   HTTP_CLIENT_ERROR_MAX,
+  TOKEN_REFRESH_CHECK_INTERVAL_MS,
 } from './lib/constants'
 
 /**
@@ -92,6 +93,56 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       (session) => useAuthStore.getState().updateSession(session),
       () => useAuthStore.getState().clearAuth()
     ).finally(() => setValidating(false))
+  }, [])
+
+  // Cross-tab session sync via storage events
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key !== 'workforce-auth') return
+
+      if (!e.newValue) {
+        // Storage cleared — another tab logged out
+        useAuthStore.getState().clearAuth()
+        return
+      }
+
+      try {
+        const { state } = JSON.parse(e.newValue)
+        const current = useAuthStore.getState()
+
+        if (!state?.session?.accessToken) {
+          // No valid session in storage
+          if (current.session) current.clearAuth()
+          return
+        }
+
+        // Only sync if the access token actually changed (prevents write-back loops)
+        if (current.session?.accessToken !== state.session.accessToken) {
+          if (state.user && state.tenant) {
+            current.setAuth(state.user, state.tenant, state.session)
+          } else {
+            current.updateSession(state.session)
+          }
+        }
+      } catch {
+        // Ignore malformed storage data
+      }
+    }
+
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
+  // Background token refresh
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      const store = useAuthStore.getState()
+      if (store.session && store.shouldRefreshToken()) {
+        store.refreshSession()
+      }
+    }, TOKEN_REFRESH_CHECK_INTERVAL_MS)
+
+    return () => clearInterval(intervalId)
   }, [])
 
   if (isLoading || validating) {

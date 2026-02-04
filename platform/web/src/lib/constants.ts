@@ -63,3 +63,8 @@ export const USER_FRIENDLY_ERRORS: Record<string, string> = {
 
 /** Default error message when we can't determine a user-friendly one */
 export const DEFAULT_ERROR_MESSAGE = 'Something went wrong. Please try again.'
+
+// ============= Token Refresh =============
+
+/** Interval in ms between background token refresh checks */
+export const TOKEN_REFRESH_CHECK_INTERVAL_MS = 4 * 60_000 // 4 minutes

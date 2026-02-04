@@ -57,7 +57,18 @@ export function Chat() {
     if (!session?.accessToken || !id) return
 
     let cancelled = false
-    const client = new StreamingClient(id, session.accessToken, {
+    const client = new StreamingClient(
+      id,
+      async () => {
+        const store = useAuthStore.getState()
+        if (store.shouldRefreshToken()) {
+          await store.refreshSession()
+        }
+        const token = useAuthStore.getState().session?.accessToken
+        if (!token) throw new Error('No token')
+        return token
+      },
+      {
       onToken: (token) => {
         useChatStore.getState().appendToken(id, token)
       },
