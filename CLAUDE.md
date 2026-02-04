@@ -3,11 +3,15 @@
 ## Project Overview
 Workforce Platform (workforce.dooza.ai) is a multi-tenant SaaS platform where businesses can use pre-built "AI Employees" or create custom ones. Clawdbot serves as the agent engine; the platform handles tenants, auth, billing, and UI.
 
+## Documentation
+- **Local development**: See `docs/LOCAL.md`
+- **Production deployment**: See `docs/DEPLOY.md`
+
 ## Architecture
 
 ```
-clawed-setup/
-├── clawdbot/              # Agent engine (unchanged, upstream)
+workforce.dooza-ai/
+├── clawdbot/              # Agent engine (submodule)
 ├── platform/              # Multi-tenant wrapper
 │   ├── src/               # Hono API server
 │   │   ├── server/        # Routes and middleware
@@ -16,117 +20,61 @@ clawed-setup/
 │   │   ├── jobs/          # Scheduled task queue
 │   │   └── db/            # Drizzle schema & client
 │   └── web/               # React + Vite frontend
-├── pnpm-workspace.yaml    # Monorepo config
-└── package.json           # Root scripts
-```
-
-## Quick Commands
-
-### Platform API Server
-```bash
-cd platform
-pnpm install
-pnpm dev                   # Start dev server on :3000
-```
-
-### Platform Web Frontend
-```bash
-cd platform/web
-pnpm install
-pnpm dev                   # Start Vite on :5173
-```
-
-### Database
-```bash
-cd platform
-pnpm db:push              # Push schema to Supabase
-pnpm db:studio            # Open Drizzle Studio
-```
-
-### Clawdbot (unchanged)
-```bash
-cd clawdbot
-pnpm install
-pnpm dev                  # Run clawdbot CLI
+├── ecosystem.config.cjs   # PM2 config
+├── render.yaml            # Render deployment
+└── docs/                  # Documentation
 ```
 
 ## Key Files
 
 ### Platform API
-- `platform/src/index.ts` - Entry point, starts Hono server
-- `platform/src/server/index.ts` - Route mounting
-- `platform/src/server/routes/` - API endpoints (auth, employees, chat, jobs)
+- `platform/src/index.ts` - Entry point
+- `platform/src/server/routes/` - API endpoints
 - `platform/src/tenant/manager.ts` - Tenant directory management
-- `platform/src/tenant/gateway.ts` - Per-tenant clawdbot gateway spawning
 - `platform/src/employees/templates.ts` - Pre-built employee types
-- `platform/src/db/schema.ts` - Drizzle/PostgreSQL schema
+- `platform/src/db/schema.ts` - Drizzle schema
 
 ### Platform Web
-- `platform/web/src/App.tsx` - React router setup
-- `platform/web/src/pages/` - Dashboard, Employees, Chat, Jobs
+- `platform/web/src/App.tsx` - React router
+- `platform/web/src/pages/` - Pages
 - `platform/web/src/lib/api.ts` - API client
-- `platform/web/src/lib/store.ts` - Zustand auth state
+- `platform/web/src/lib/store.ts` - Zustand state
 
-### Clawdbot (reference)
-- `clawdbot/src/cli/` - CLI commands
+### Clawdbot
 - `clawdbot/src/gateway/` - Gateway server
-- `clawdbot/skills/` - Skill definitions
+- `clawdbot/src/config/paths.ts` - Tenant path resolution
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| API Server | Hono (TypeScript) |
+| API | Hono (TypeScript) |
 | Database | Supabase (PostgreSQL) |
 | ORM | Drizzle |
 | Auth | Supabase Auth |
-| Frontend | React + Vite |
-| State | Zustand |
+| Frontend | React + Vite + Zustand |
 | Agent Engine | Clawdbot |
+| Process Manager | PM2 |
 
-## Environment Variables
+## Tenant Data
 
-### Platform API (.env)
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_KEY=eyJ...
-DATABASE_URL=postgresql://...
-PORT=3000
-TENANT_DATA_DIR=/data/tenants
-ANTHROPIC_API_KEY=sk-ant-...
+| Environment | Location |
+|-------------|----------|
+| macOS | `~/data/tenants/` |
+| Linux | `/data/tenants/` |
+
+Structure:
 ```
-
-### Platform Web (.env)
-```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ...
+{tenantId}/
+├── clawdbot.json       # Gateway config
+├── moltbot.json        # Agent registrations
+├── workspace/          # Sandbox
+└── agents/{slug}/      # Per-agent data
 ```
-
-## Design System
-Uses Clawdbot's CSS variables:
-- Dark theme with red accent (#ff5c5c)
-- Space Grotesk font
-- Supports light/dark themes via `[data-theme]`
 
 ## Code Conventions
 - TypeScript strict mode
 - ESM modules
-- Hono for API (lightweight, fast)
-- Drizzle for type-safe database queries
+- Hono for API
+- Drizzle for database
 - Zustand for client state
-- No unnecessary abstractions
-
-## Tenant Isolation
-Each tenant gets isolated directory at `/data/tenants/{tenantId}/`:
-```
-.clawdbot/
-├── config.json
-├── state/sessions.json
-└── agents/{employeeId}/sessions/
-workspace/
-├── SOUL.md
-└── skills/
-```
-
-Clawdbot gateway spawned per-tenant with `CLAWDBOT_STATE_DIR` env var.

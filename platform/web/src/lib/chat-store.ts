@@ -24,6 +24,7 @@ interface EmployeeChatState {
   streamingContent: string
   isStreaming: boolean
   currentRunId: string | null
+  finalizedRunIds: Set<string>
 }
 
 interface ChatState {
@@ -35,7 +36,7 @@ interface ChatState {
   addUserMessage: (employeeId: string, content: string) => string
   startStreaming: (employeeId: string, runId: string) => void
   appendToken: (employeeId: string, token: string) => void
-  finalizeMessage: (employeeId: string, message: StreamMessage, usage?: TokenUsage) => void
+  finalizeMessage: (employeeId: string, message: StreamMessage, usage?: TokenUsage, runId?: string) => void
   setError: (employeeId: string, messageId: string, error: string) => void
   abortStreaming: (employeeId: string) => void
   clearStreamingContent: (employeeId: string) => void
@@ -48,6 +49,7 @@ const getDefaultChatState = (): EmployeeChatState => ({
   streamingContent: '',
   isStreaming: false,
   currentRunId: null,
+  finalizedRunIds: new Set(),
 })
 
 let messageIdCounter = 0
@@ -127,19 +129,27 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     })
   },
 
-  finalizeMessage: (employeeId: string, message: StreamMessage, usage?: TokenUsage) => {
-    const id = generateMessageId()
-    const chatMessage: ChatMessage = {
-      id,
-      role: message.role,
-      content: message.content,
-      timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
-      usage,
-    }
-
+  finalizeMessage: (employeeId: string, message: StreamMessage, usage?: TokenUsage, runId?: string) => {
     set((state) => {
       const chat = state.chats[employeeId]
       if (!chat) return state
+
+      // Deduplicate: skip if we already finalized this runId
+      if (runId && chat.finalizedRunIds.has(runId)) {
+        return state
+      }
+
+      const id = generateMessageId()
+      const chatMessage: ChatMessage = {
+        id,
+        role: message.role,
+        content: message.content,
+        timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
+        usage,
+      }
+
+      const finalizedRunIds = new Set(chat.finalizedRunIds)
+      if (runId) finalizedRunIds.add(runId)
 
       return {
         chats: {
@@ -150,27 +160,35 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             streamingContent: '',
             isStreaming: false,
             currentRunId: null,
+            finalizedRunIds,
           },
         },
       }
     })
   },
 
-  setError: (employeeId: string, _messageId: string, error: string) => {
-    // Add error message as assistant response
-    const id = generateMessageId()
-    const errorMessage: ChatMessage = {
-      id,
-      role: 'assistant',
-      content: error,
-      timestamp: new Date(),
-      isError: true,
-      canRetry: true,
-    }
-
+  setError: (employeeId: string, runId: string, error: string) => {
     set((state) => {
       const chat = state.chats[employeeId]
       if (!chat) return state
+
+      // Deduplicate: skip if we already finalized this runId
+      if (runId && chat.finalizedRunIds.has(runId)) {
+        return state
+      }
+
+      const id = generateMessageId()
+      const errorMessage: ChatMessage = {
+        id,
+        role: 'assistant',
+        content: error,
+        timestamp: new Date(),
+        isError: true,
+        canRetry: true,
+      }
+
+      const finalizedRunIds = new Set(chat.finalizedRunIds)
+      if (runId) finalizedRunIds.add(runId)
 
       return {
         chats: {
@@ -181,6 +199,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             streamingContent: '',
             isStreaming: false,
             currentRunId: null,
+            finalizedRunIds,
           },
         },
       }

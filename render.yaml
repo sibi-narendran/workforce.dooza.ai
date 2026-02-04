@@ -1,11 +1,14 @@
 services:
-  # Platform API
+  # Platform API + Gateway (single instance)
   - type: web
-    name: workforce-api
+    name: workforce
     runtime: node
-    rootDir: platform
-    buildCommand: npm install --include=dev && npm run build
-    startCommand: npm run start
+    plan: starter  # Required for persistent disk
+    buildCommand: |
+      npm i -g pnpm@10 pm2 &&
+      cd clawdbot && pnpm install && pnpm build &&
+      cd ../platform && pnpm install && pnpm build
+    startCommand: pm2-runtime ecosystem.config.cjs --only gateway,platform
     envVars:
       - key: PORT
         value: 3000
@@ -13,11 +16,9 @@ services:
         value: /data/tenants
       - key: NODE_ENV
         value: production
-      - key: CLAWDBOT_GATEWAY_HOST
-        fromService:
-          name: workforce-gateway
-          type: web
-          property: host
+      - key: CLAWDBOT_GATEWAY_URL
+        value: http://127.0.0.1:18789
+      # Secrets (set in Render dashboard)
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
@@ -30,30 +31,12 @@ services:
         sync: false
       - key: CLAWDBOT_HOOK_TOKEN
         sync: false
+      - key: COMPOSIO_API_KEY
+        sync: false
       - key: DEFAULT_MODEL
-        value: google/gemini-3-pro-preview
+        value: google/gemini-2.0-flash-001
     disk:
       name: tenant-data
-      mountPath: /data
+      mountPath: /data/tenants
       sizeGB: 1
-
-  # Clawdbot Gateway
-  - type: web
-    name: workforce-gateway
-    runtime: node
-    rootDir: clawdbot
-    buildCommand: npm i -g pnpm@10 && pnpm install && pnpm build
-    startCommand: node moltbot.mjs gateway --port $PORT --bind lan
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: MOLTBOT_STATE_DIR
-        value: /opt/render/project/.moltbot
-      - key: MOLTBOT_CONFIG_PATH
-        value: ./moltbot.production.json
-      - key: CLAWDBOT_GATEWAY_TOKEN
-        sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: OPENROUTER_API_KEY
-        sync: false
+    healthCheckPath: /api/health

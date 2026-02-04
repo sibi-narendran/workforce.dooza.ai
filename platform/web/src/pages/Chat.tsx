@@ -60,11 +60,11 @@ export function Chat() {
       onToken: (token) => {
         useChatStore.getState().appendToken(id, token)
       },
-      onComplete: (message, _runId, usage) => {
-        useChatStore.getState().finalizeMessage(id, message, usage)
+      onComplete: (message, runId, usage) => {
+        useChatStore.getState().finalizeMessage(id, message, usage, runId)
       },
-      onError: (error, _runId) => {
-        useChatStore.getState().setError(id, _runId, `Error: ${error}`)
+      onError: (error, runId) => {
+        useChatStore.getState().setError(id, runId, `Error: ${error}`)
       },
       onAborted: () => {
         useChatStore.getState().abortStreaming(id)
