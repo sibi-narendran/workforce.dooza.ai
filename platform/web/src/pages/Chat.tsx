@@ -56,6 +56,7 @@ export function Chat() {
   useEffect(() => {
     if (!session?.accessToken || !id) return
 
+    let cancelled = false
     const client = new StreamingClient(id, session.accessToken, {
       onToken: (token) => {
         useChatStore.getState().appendToken(id, token)
@@ -70,12 +71,16 @@ export function Chat() {
         useChatStore.getState().abortStreaming(id)
       },
       onConnected: (sessionKey) => {
-        console.log('[Chat] SSE connected, session:', sessionKey)
-        setIsConnected(true)
+        if (!cancelled) {
+          console.log('[Chat] SSE connected, session:', sessionKey)
+          setIsConnected(true)
+        }
       },
       onDisconnected: () => {
-        console.log('[Chat] SSE disconnected')
-        setIsConnected(false)
+        if (!cancelled) {
+          console.log('[Chat] SSE disconnected')
+          setIsConnected(false)
+        }
       },
     })
 
@@ -83,6 +88,7 @@ export function Chat() {
     streamingClientRef.current = client
 
     return () => {
+      cancelled = true
       client.disconnect()
       streamingClientRef.current = null
     }

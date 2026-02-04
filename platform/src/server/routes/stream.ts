@@ -134,8 +134,11 @@ streamRouter.get('/employee/:employeeId', async (c) => {
     return c.json({ error: 'Failed to generate session key' }, 500)
   }
 
+  // Extract tabId for per-tab connection dedup (prevents duplicate connections from React StrictMode)
+  const tabId = c.req.query('tabId')
+
   // Create SSE response
-  return sseManager.createSSEResponse(c, tenantId, employeeId, sessionKey)
+  return sseManager.createSSEResponse(c, tenantId, employeeId, sessionKey, tabId)
 })
 
 // Schema for streaming chat message

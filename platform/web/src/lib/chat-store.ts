@@ -24,7 +24,6 @@ interface EmployeeChatState {
   streamingContent: string
   isStreaming: boolean
   currentRunId: string | null
-  finalizedRunIds: Set<string>
 }
 
 interface ChatState {
@@ -49,7 +48,6 @@ const getDefaultChatState = (): EmployeeChatState => ({
   streamingContent: '',
   isStreaming: false,
   currentRunId: null,
-  finalizedRunIds: new Set(),
 })
 
 let messageIdCounter = 0
@@ -134,10 +132,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const chat = state.chats[employeeId]
       if (!chat) return state
 
-      // Deduplicate: skip if we already finalized this runId
-      if (runId && chat.finalizedRunIds.has(runId)) {
-        return state
-      }
+      // Only finalize if this matches our current streaming run
+      if (runId && chat.currentRunId !== runId) return state
 
       const id = generateMessageId()
       const chatMessage: ChatMessage = {
@@ -148,9 +144,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         usage,
       }
 
-      const finalizedRunIds = new Set(chat.finalizedRunIds)
-      if (runId) finalizedRunIds.add(runId)
-
       return {
         chats: {
           ...state.chats,
@@ -160,7 +153,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             streamingContent: '',
             isStreaming: false,
             currentRunId: null,
-            finalizedRunIds,
           },
         },
       }
@@ -172,10 +164,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const chat = state.chats[employeeId]
       if (!chat) return state
 
-      // Deduplicate: skip if we already finalized this runId
-      if (runId && chat.finalizedRunIds.has(runId)) {
-        return state
-      }
+      // Only handle errors for the current streaming run
+      if (runId && chat.currentRunId !== runId) return state
 
       const id = generateMessageId()
       const errorMessage: ChatMessage = {
@@ -187,9 +177,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         canRetry: true,
       }
 
-      const finalizedRunIds = new Set(chat.finalizedRunIds)
-      if (runId) finalizedRunIds.add(runId)
-
       return {
         chats: {
           ...state.chats,
@@ -199,7 +186,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             streamingContent: '',
             isStreaming: false,
             currentRunId: null,
-            finalizedRunIds,
           },
         },
       }

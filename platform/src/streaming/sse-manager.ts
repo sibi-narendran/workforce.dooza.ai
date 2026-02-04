@@ -16,6 +16,7 @@ export interface SSEConnection {
   tenantId: string
   employeeId: string
   sessionKey: string
+  tabId?: string
   controller: ReadableStreamDefaultController<Uint8Array>
   createdAt: number
   lastPing: number
@@ -27,6 +28,7 @@ class SSEManager {
   private connections = new Map<string, SSEConnection>()
   private sessionIndex = new Map<string, Set<string>>() // sessionKey -> connIds
   private tenantIndex = new Map<string, Set<string>>() // tenantId -> connIds
+  private tabIndex = new Map<string, string>() // `${sessionKey}:${tabId}` -> connId
   private pingInterval: NodeJS.Timeout | null = null
   private readonly PING_INTERVAL_MS = 30000 // 30 seconds
 
@@ -41,14 +43,34 @@ class SSEManager {
     tenantId: string,
     employeeId: string,
     sessionKey: string,
-    controller: ReadableStreamDefaultController<Uint8Array>
+    controller: ReadableStreamDefaultController<Uint8Array>,
+    tabId?: string
   ): string {
+    // Evict existing connection from the same tab (handles StrictMode remounts, token refresh, etc.)
+    if (tabId) {
+      const tabKey = `${sessionKey}:${tabId}`
+      const existingConnId = this.tabIndex.get(tabKey)
+      if (existingConnId) {
+        const existingConn = this.connections.get(existingConnId)
+        if (existingConn) {
+          console.log(`[SSEManager] Evicting stale connection ${existingConnId} for tab ${tabId}`)
+          try {
+            existingConn.controller.close()
+          } catch {
+            // Already closed
+          }
+          this.removeConnection(existingConnId)
+        }
+      }
+    }
+
     const connId = randomUUID()
     const connection: SSEConnection = {
       id: connId,
       tenantId,
       employeeId,
       sessionKey,
+      tabId,
       controller,
       createdAt: Date.now(),
       lastPing: Date.now(),
@@ -68,7 +90,12 @@ class SSEManager {
     }
     this.tenantIndex.get(tenantId)!.add(connId)
 
-    console.log(`[SSEManager] Connection added: ${connId} (tenant: ${tenantId}, employee: ${employeeId})`)
+    // Index by tab
+    if (tabId) {
+      this.tabIndex.set(`${sessionKey}:${tabId}`, connId)
+    }
+
+    console.log(`[SSEManager] Connection added: ${connId} (tenant: ${tenantId}, employee: ${employeeId}, tab: ${tabId || 'none'})`)
     return connId
   }
 
@@ -94,6 +121,14 @@ class SSEManager {
       tenantConns.delete(connId)
       if (tenantConns.size === 0) {
         this.tenantIndex.delete(conn.tenantId)
+      }
+    }
+
+    // Remove from tab index
+    if (conn.tabId) {
+      const tabKey = `${conn.sessionKey}:${conn.tabId}`
+      if (this.tabIndex.get(tabKey) === connId) {
+        this.tabIndex.delete(tabKey)
       }
     }
 
@@ -231,13 +266,14 @@ class SSEManager {
     c: Context,
     tenantId: string,
     employeeId: string,
-    sessionKey: string
+    sessionKey: string,
+    tabId?: string
   ): Response {
     let connId: string | null = null
 
     const stream = new ReadableStream<Uint8Array>({
       start: (controller) => {
-        connId = this.createConnection(tenantId, employeeId, sessionKey, controller)
+        connId = this.createConnection(tenantId, employeeId, sessionKey, controller, tabId)
 
         // Send initial connection event
         const initEvent: ChatEvent = {

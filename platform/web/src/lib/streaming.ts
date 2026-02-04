@@ -7,6 +7,9 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
+// Unique per browser tab, survives React component remounts (including StrictMode)
+const TAB_ID = crypto.randomUUID()
+
 export interface ChatEvent {
   runId: string
   seq: number
@@ -48,6 +51,7 @@ export class StreamingClient {
   private maxReconnectAttempts = 10
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
   private isManualClose = false
+  private destroyed = false
 
   constructor(employeeId: string, token: string, callbacks: StreamingCallbacks = {}) {
     this.employeeId = employeeId
@@ -59,12 +63,11 @@ export class StreamingClient {
    * Connect to the SSE stream
    */
   connect(): void {
-    if (this.eventSource) {
-      return // Already connected
-    }
+    if (this.destroyed) return
+    if (this.eventSource) return
 
     this.isManualClose = false
-    const url = `${API_BASE}/stream/employee/${this.employeeId}?token=${encodeURIComponent(this.token)}`
+    const url = `${API_BASE}/stream/employee/${this.employeeId}?token=${encodeURIComponent(this.token)}&tabId=${TAB_ID}`
 
     // Note: EventSource doesn't support custom headers, so we pass token as query param
     // The backend should accept both Authorization header and query param
@@ -128,7 +131,7 @@ export class StreamingClient {
    * Schedule reconnection with exponential backoff and jitter
    */
   private scheduleReconnect(): void {
-    if (this.isManualClose) {
+    if (this.isManualClose || this.destroyed) {
       return
     }
 
@@ -154,6 +157,7 @@ export class StreamingClient {
    * Disconnect from the stream
    */
   disconnect(): void {
+    this.destroyed = true
     this.isManualClose = true
 
     if (this.reconnectTimeout) {
