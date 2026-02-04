@@ -3,6 +3,7 @@ import { app } from './server/index.js'
 import { validateEnv, env } from './lib/env.js'
 import { jobScheduler } from './jobs/scheduler.js'
 import { stopAllGateways } from './tenant/gateway-manager.js'
+import { syncAllAgentTemplates } from './employees/sync.js'
 
 // Validate environment on startup
 try {
@@ -36,6 +37,11 @@ console.log(`[Platform] AI Model: ${env.DEFAULT_MODEL}`)
 // Start job scheduler (skip if database not ready)
 jobScheduler.start().catch((err) => {
   console.warn('[Platform] Job scheduler failed to start:', err.message)
+})
+
+// Sync agent templates to all installed tenants
+syncAllAgentTemplates().catch((err) => {
+  console.warn('[Platform] Template sync failed:', err.message)
 })
 
 // Start HTTP server

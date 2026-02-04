@@ -12,7 +12,8 @@ OAuth tokens stored per-tenant.
 
 ## Image Generation
 
-Flux via Replicate. Include brand colors in prompt when available.
+Use the `generate_image` tool directly — no exec needed. It calls OpenRouter's Gemini 3 Pro
+Image Preview model and saves the result to `canvas/`. Include brand colors in prompt when available.
 
 ## Database
 

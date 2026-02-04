@@ -13,6 +13,7 @@ import {
   uninstallAgentFromTenant,
   agentTemplateExists,
 } from '../../employees/installer.js'
+import { syncAgentFilesForAllTenants, syncAgentConfigForAllTenants } from '../../employees/sync.js'
 
 const libraryRouter = new Hono()
 
@@ -344,6 +345,26 @@ libraryRouter.delete('/installed/:id', async (c) => {
     .where(eq(agentLibrary.id, existing.agentId))
 
   return c.json({ success: true, message: 'Agent uninstalled' })
+})
+
+/**
+ * Sync agent template files + clawdbot.json config to all existing tenant installations.
+ * Used when a template's files or requiredTools change.
+ */
+libraryRouter.post('/sync/:slug', async (c) => {
+  const slug = c.req.param('slug')
+
+  try {
+    const files = await syncAgentFilesForAllTenants(slug)
+    const config = await syncAgentConfigForAllTenants(slug)
+    return c.json({
+      files: { synced: files.synced, errors: files.errors },
+      config: { synced: config.synced, errors: config.errors },
+    })
+  } catch (error) {
+    console.error('Sync error:', error)
+    return c.json({ error: 'Failed to sync agent' }, 500)
+  }
 })
 
 export { libraryRouter }

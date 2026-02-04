@@ -106,6 +106,7 @@ interface ClawdbotConfig {
       default?: boolean
       workspace: string   // clawdbot uses this for resolveAgentWorkspaceDir()
       agentDir: string    // clawdbot uses this for resolveAgentDir() (sessions/memory)
+      tools?: { alsoAllow?: string[] }
     }>
   }
   // Internal hooks configuration
@@ -126,6 +127,7 @@ interface ClawdbotConfig {
     slots?: {
       memory?: string
     }
+    entries?: Record<string, { enabled: boolean }>
   }
 }
 
@@ -470,7 +472,12 @@ export class TenantManager {
    */
   async addAgentToClawdbotConfig(
     tenantId: string,
-    agent: { id: string; agentDir: string; isDefault?: boolean }
+    agent: {
+      id: string
+      agentDir: string
+      isDefault?: boolean
+      tools?: { alsoAllow?: string[] }
+    }
   ): Promise<void> {
     const config = await this.loadClawdbotConfig(tenantId)
 
@@ -481,17 +488,22 @@ export class TenantManager {
 
     // Check if agent already exists
     const existingIndex = config.agents.list.findIndex(a => a.id === agent.id)
-    const agentEntry = {
+    const agentEntry: NonNullable<ClawdbotConfig['agents']['list']>[number] = {
       id: agent.id,
       // clawdbot uses 'workspace' for resolveAgentWorkspaceDir(), not 'agentDir'
       workspace: agent.agentDir,
       // Also set agentDir for resolveAgentDir() (sessions, memory paths)
       agentDir: agent.agentDir,
       ...(agent.isDefault ? { default: true } : {}),
+      ...(agent.tools ? { tools: agent.tools } : {}),
     }
 
     if (existingIndex >= 0) {
-      // Update existing entry
+      // Update existing entry, preserve default flag if already set
+      const existing = config.agents.list[existingIndex]
+      if (existing.default && !agent.isDefault) {
+        agentEntry.default = true
+      }
       config.agents.list[existingIndex] = agentEntry
     } else {
       // Add new entry - first agent is default
@@ -512,6 +524,27 @@ export class TenantManager {
     if (config.agents.list) {
       config.agents.list = config.agents.list.filter(a => a.id !== agentId)
     }
+    await this.saveClawdbotConfig(tenantId, config)
+  }
+
+  /**
+   * Enable specific plugins in clawdbot.json
+   * Ensures plugins.entries[pluginId] = { enabled: true } for each plugin ID
+   */
+  async enablePlugins(tenantId: string, pluginIds: string[]): Promise<void> {
+    const config = await this.loadClawdbotConfig(tenantId)
+
+    if (!config.plugins) {
+      config.plugins = { enabled: true }
+    }
+    if (!config.plugins.entries) {
+      config.plugins.entries = {}
+    }
+
+    for (const pluginId of pluginIds) {
+      config.plugins.entries[pluginId] = { enabled: true }
+    }
+
     await this.saveClawdbotConfig(tenantId, config)
   }
 

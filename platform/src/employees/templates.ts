@@ -15,6 +15,13 @@ export interface EmployeeTemplate {
   agents: string
   /** IDENTITY.md content - name, emoji, avatar */
   identity: string
+  /** Clawdbot tool/plugin requirements for this agent */
+  requiredTools?: {
+    /** Per-agent tools.alsoAllow entries */
+    alsoAllow?: string[]
+    /** Plugin IDs that must be enabled */
+    plugins?: string[]
+  }
 }
 
 /**
@@ -92,6 +99,10 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     description: 'Social media specialist — creates, schedules, and publishes content across LinkedIn, Instagram, X, and Facebook',
     skills: ['generate-post', 'adapt-content', 'get-ideas', 'generate-image', 'fetch-brand-assets', 'create-creative', 'schedule-post', 'publish-now', 'fetch-analytics', 'get-past-posts', 'get-top-performers', 'show-preview', 'show-scheduler', 'show-brand-picker'],
     model: 'anthropic/claude-sonnet-4',
+    requiredTools: {
+      alsoAllow: ['generate_image'],
+      plugins: ['image-gen'],
+    },
     soul: `# SOUL.md
 
 ## Who I Am
@@ -618,6 +629,34 @@ Organize tasks, track progress, manage timelines, and facilitate team communicat
 `,
   },
 ]
+
+/**
+ * Clawdbot sandbox default tool allowlist.
+ * Must stay in sync with clawdbot/src/agents/sandbox/constants.ts DEFAULT_TOOL_ALLOW.
+ */
+const SANDBOX_DEFAULT_TOOL_ALLOW = [
+  'exec', 'process', 'read', 'write', 'edit', 'apply_patch',
+  'image', 'sessions_list', 'sessions_history', 'sessions_send',
+  'sessions_spawn', 'session_status',
+]
+
+/**
+ * Build the per-agent tools config object from a template.
+ * Includes both alsoAllow (pi-tools policy) and sandbox.tools.allow (sandbox policy)
+ * so plugin tools aren't stripped by the sandbox filter.
+ */
+export function buildAgentToolsConfig(template: EmployeeTemplate): Record<string, unknown> | undefined {
+  if (!template.requiredTools?.alsoAllow) return undefined
+
+  return {
+    alsoAllow: template.requiredTools.alsoAllow,
+    sandbox: {
+      tools: {
+        allow: [...SANDBOX_DEFAULT_TOOL_ALLOW, ...template.requiredTools.alsoAllow],
+      },
+    },
+  }
+}
 
 /**
  * Get a template by type

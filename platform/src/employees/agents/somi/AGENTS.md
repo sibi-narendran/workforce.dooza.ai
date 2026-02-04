@@ -37,7 +37,7 @@ Write down what matters. Decisions, what worked, what didn't.
 - `get-ideas` — brainstorm content ideas
 
 ### Creative
-- `generate-image` — AI image generation
+- `generate_image` — AI image generation (native tool, no exec needed)
 - `fetch-brand-assets` — get logos, colors, fonts
 - `create-creative` — image + text composites
 

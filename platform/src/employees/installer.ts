@@ -8,6 +8,8 @@ import { mkdir, cp, rm, readdir, access } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { tenantManager } from '../tenant/manager.js'
+import { getTemplate } from './templates.js'
+import { buildAgentToolsConfig } from './templates.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -88,11 +90,21 @@ export async function installAgentForTenant(
     workspace: destPath,
   })
 
+  // Look up template for tool/plugin requirements
+  const template = getTemplate(agentSlug)
+
   // Update clawdbot.json (required for skill discovery)
+  const toolsConfig = template ? buildAgentToolsConfig(template) : undefined
   await tenantManager.addAgentToClawdbotConfig(tenantId, {
     id: agentSlug,
     agentDir: destPath,  // clawdbot uses agentDir for workspace path
+    ...(toolsConfig ? { tools: toolsConfig } : {}),
   })
+
+  // Enable required plugins for this agent
+  if (template?.requiredTools?.plugins?.length) {
+    await tenantManager.enablePlugins(tenantId, template.requiredTools.plugins)
+  }
 
   console.log(`[Installer] Updated configs for tenant ${tenantId} with agent ${agentSlug}`)
 }
