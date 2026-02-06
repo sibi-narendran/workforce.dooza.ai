@@ -41,6 +41,9 @@ Write down what matters. Decisions, what worked, what didn't.
 - `fetch-brand-assets` — get logos, colors, fonts
 - `create-creative` — image + text composites
 
+### Social Publishing
+- `publish_linkedin` — post text to LinkedIn (native tool, requires env vars)
+
 ### Publishing
 - `schedule-post` — schedule for later
 - `publish-now` — publish immediately (with approval)

@@ -395,6 +395,7 @@ Located in `clawdbot/extensions/`:
 | `memory-core` | memory | File-backed memory search |
 | `memory-lancedb` | memory | LanceDB vector memory |
 | `image-gen` | tools | `generate_image` tool (OpenRouter Gemini) |
+| `api-tools` | tools | Generic API tools from YAML definitions |
 | `voice-call` | channel | Voice call channel |
 | `composio-direct` | tools | Composio tool integrations |
 | `slack` | channel | Slack messaging |
@@ -412,6 +413,94 @@ extensions/{plugin-id}/
 ├── openclaw.plugin.json      # Manifest (id, kind, configSchema)
 └── package.json              # npm metadata with openclaw.extensions entry
 ```
+
+---
+
+## YAML API Tools (api-tools plugin)
+
+The `api-tools` plugin lets you add API capabilities to agents without writing TypeScript. Drop a YAML file in the agent's `api-tools/` directory — it becomes a native tool the LLM can call.
+
+### Quick start
+
+1. Create a YAML file in `agents/{slug}/api-tools/my_tool.yaml`
+2. Add the tool name to `requiredTools.alsoAllow` in `templates.ts`
+3. Add `api-tools` to `requiredTools.plugins` in `templates.ts`
+4. Enable `api-tools` in `~/.openclaw/openclaw.json` → `plugins.entries`
+5. Restart gateway and platform
+
+### YAML tool definition schema
+
+```yaml
+name: publish_linkedin                    # Tool name (must match [a-z][a-z0-9_]*)
+description: Publish a text post to LinkedIn
+
+parameters:                               # LLM sees these as typed tool params
+  text:
+    type: string                          # string, number, integer, boolean
+    description: Post content
+    required: true
+  visibility:
+    type: string
+    description: Post visibility
+    enum: ["PUBLIC", "CONNECTIONS"]       # Optional enum constraint
+    default: "PUBLIC"                     # Optional default value
+
+request:
+  method: POST                            # GET, POST, PUT, PATCH, DELETE
+  url: "https://api.linkedin.com/rest/posts"
+  headers:
+    Authorization: "Bearer {{env.LINKEDIN_ACCESS_TOKEN}}"
+    Content-Type: "application/json"
+  body:
+    type: json                            # json, form, or text
+    content:
+      author: "urn:li:person:{{env.LINKEDIN_PERSON_URN}}"
+      commentary: "{{params.text}}"
+      visibility: "{{params.visibility}}"
+  timeout_ms: 15000                       # Max 60000, default 30000
+
+response:
+  summary: "Post published. ID: {{response.id}}"
+  error_template: "LinkedIn error ({{response.status}}): {{response.message}}"
+
+requires_env:                             # Checked before request
+  - LINKEDIN_ACCESS_TOKEN
+  - LINKEDIN_PERSON_URN
+
+allowed_hosts:                            # URL must match one of these (required)
+  - api.linkedin.com
+```
+
+### Template variables
+
+| Pattern | Source | Example |
+|---------|--------|---------|
+| `{{env.VAR}}` | Environment variable (from tenant's `clawdbot.json` → `env`) | `{{env.LINKEDIN_ACCESS_TOKEN}}` |
+| `{{params.KEY}}` | Tool parameter passed by LLM | `{{params.text}}` |
+| `{{response.KEY}}` | Response JSON field (for summary/error templates) | `{{response.id}}` |
+
+Variables are interpolated recursively in strings, headers, body content, and response templates.
+
+### Security constraints
+
+- **Private IP blocking**: localhost, 10.x, 172.16-31.x, 192.168.x, 169.254.169.254, .internal, .local
+- **allowed_hosts enforcement**: URL hostname must match an entry in `allowed_hosts` (supports wildcard `*.example.com`)
+- **No code execution**: Template engine is single-pass regex replacement, no eval/Function
+- **Env var strictness**: Missing required env vars throw errors (don't silently empty-string)
+- **Timeout cap**: Maximum 60 seconds
+
+### File location
+
+```
+platform/src/employees/agents/{slug}/api-tools/
+└── my_tool.yaml    # One file per tool
+```
+
+The `api-tools` plugin scans this directory per-session and registers each YAML file as a native tool.
+
+### Example: Somi's LinkedIn tool
+
+`platform/src/employees/agents/somi/api-tools/publish_linkedin.yaml` — see the file for a complete working example.
 
 ---
 

@@ -1,0 +1,43 @@
+name: publish_linkedin
+description: Publish a text post to LinkedIn
+
+parameters:
+  text:
+    type: string
+    description: Post content (max 3000 chars)
+    required: true
+  visibility:
+    type: string
+    description: Post visibility
+    enum: ["PUBLIC", "CONNECTIONS"]
+    default: "PUBLIC"
+
+request:
+  method: POST
+  url: "https://api.linkedin.com/rest/posts"
+  headers:
+    Authorization: "Bearer {{env.LINKEDIN_ACCESS_TOKEN}}"
+    Content-Type: "application/json"
+    LinkedIn-Version: "202401"
+    X-Restli-Protocol-Version: "2.0.0"
+  body:
+    type: json
+    content:
+      author: "urn:li:person:{{env.LINKEDIN_PERSON_URN}}"
+      commentary: "{{params.text}}"
+      visibility: "{{params.visibility}}"
+      distribution:
+        feedDistribution: "MAIN_FEED"
+      lifecycleState: "PUBLISHED"
+  timeout_ms: 15000
+
+response:
+  summary: "Post published successfully"
+  error_template: "LinkedIn error ({{response.status}}): {{response.message}}"
+
+requires_env:
+  - LINKEDIN_ACCESS_TOKEN
+  - LINKEDIN_PERSON_URN
+
+allowed_hosts:
+  - api.linkedin.com

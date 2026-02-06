@@ -100,8 +100,8 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     skills: ['generate-post', 'adapt-content', 'get-ideas', 'generate-image', 'fetch-brand-assets', 'create-creative', 'schedule-post', 'publish-now', 'fetch-analytics', 'get-past-posts', 'get-top-performers', 'show-preview', 'show-scheduler', 'show-brand-picker'],
     model: 'anthropic/claude-sonnet-4',
     requiredTools: {
-      alsoAllow: ['generate_image'],
-      plugins: ['image-gen'],
+      alsoAllow: ['generate_image', 'publish_linkedin'],
+      plugins: ['image-gen', 'api-tools'],
     },
     soul: `# SOUL.md
 
