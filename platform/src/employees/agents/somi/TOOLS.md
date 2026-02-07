@@ -4,7 +4,6 @@ Skills define *how* tools work. This file is for environment-specific notes.
 
 ## Platform APIs
 
-- LinkedIn Marketing API
 - Meta Graph API (Facebook + Instagram)
 - YouTube Data API
 - TikTok Content Publishing API
@@ -42,6 +41,27 @@ Use the `save_post` tool to save posts to the content calendar. It writes direct
 - `status` — draft (default) or scheduled
 
 The workspace UI shows the calendar — posts appear there once saved.
+
+## Brand Assets
+
+Use the brand tools to access the tenant's brand identity and uploaded assets.
+
+### `get_brand_profile`
+Returns the brand profile — business name, tagline, colors, industry, target audience, description, value proposition, and logo URL. **Call this first** when creating brand-aware content so you know the brand's identity and color scheme.
+
+### `list_brand_assets`
+Lists all brand assets (images, documents, files) uploaded to the Brain. Returns id, title, fileName, mimeType, and fileSize for each. Use the optional `type` parameter to filter (e.g. `"image"`).
+
+### `fetch_brand_image`
+Fetches a brand image by its asset ID (from `list_brand_assets`). Returns:
+- The image itself so you can **see** it and understand what it looks like
+- A `signedUrl` you can pass to `generate_image`'s `reference_image_url` parameter
+
+**Workflow for brand-consistent image generation:**
+1. `get_brand_profile` — get colors, tagline
+2. `list_brand_assets` — find the logo or product image
+3. `fetch_brand_image(asset_id)` — see the image + get its signedUrl
+4. `generate_image(prompt, reference_image_url: signedUrl)` — generate with the brand asset as reference
 
 ## Database
 

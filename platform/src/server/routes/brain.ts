@@ -166,6 +166,11 @@ brainRouter.post('/extract', zValidator('json', extractSchema), async (c) => {
     if (logoSourceUrl) {
       storedLogoPath = await downloadAndStoreLogo(logoSourceUrl, tenantId)
       console.log('[Brain] Logo stored at:', storedLogoPath)
+
+      // Also create a brain_items entry so the logo is discoverable via list_brand_assets
+      if (storedLogoPath) {
+        await ensureLogoBrainItem(tenantId, storedLogoPath, logoSourceUrl)
+      }
     }
 
     // Merge HTML and LLM extractions (LLM takes precedence for text fields)

@@ -395,6 +395,7 @@ Located in `clawdbot/extensions/`:
 | `memory-lancedb` | memory | LanceDB vector memory |
 | `image-gen` | tools | `generate_image` tool (OpenRouter Gemini) — uploads to Supabase Storage |
 | `api-tools` | tools | Generic API tools from YAML definitions |
+| `brand-assets` | tools | Brand profile + asset access from Supabase Brain storage |
 | `voice-call` | channel | Voice call channel |
 | `composio-direct` | tools | Composio tool integrations |
 | `slack` | channel | Slack messaging |
@@ -430,6 +431,39 @@ The `image-gen` plugin (`clawdbot/extensions/image-gen/index.ts`) generates imag
 
 **Tenant isolation:** Each tenant's images are namespaced under `media/{tenantId}/`. The bucket is public (read-only for CDN), but only the gateway (with service key) can upload.
 
+### Brand Assets (brand-assets plugin)
+
+The `brand-assets` plugin (`clawdbot/extensions/brand-assets/index.ts`) provides read access
+to brand profile and uploaded assets from Supabase Brain storage.
+
+**Tools:**
+- `get_brand_profile` — reads `brain_brand` table (one row per tenant)
+- `list_brand_assets` — reads `brain_items` table, filterable by type
+- `fetch_brand_image` — downloads image from brain storage bucket, returns:
+  - `type: "image"` content block (LLM sees the image inline)
+  - `signedUrl` in text block (pass to `generate_image`'s `reference_image_url`)
+
+**Why a TypeScript plugin (not YAML)?**
+YAML api-tools hardcode `type: "text"` in tool results. To return image content blocks
+that the LLM can see, a TypeScript plugin is required.
+
+**Integration with image-gen:**
+`generate_image` accepts an optional `reference_image_url` parameter. When provided,
+the reference image is fetched, base64-encoded, and sent as a multimodal message to
+OpenRouter (Gemini). This enables brand-consistent image generation.
+
+**Workflow:**
+1. `get_brand_profile` — get brand name, colors, tagline
+2. `list_brand_assets` — find asset IDs (filter by `type: "image"`)
+3. `fetch_brand_image(asset_id)` — LLM sees the image + gets signedUrl
+4. `generate_image(prompt, reference_image_url: signedUrl)` — brand-consistent output
+
+**Environment variables** (same as image-gen): `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
+
+**Database tables** (in `platform/src/db/schema.ts`):
+- `brain_brand` — business_name, tagline, primary_color, secondary_color, industry, target_audience, description, value_proposition, logo_url, website, social_links
+- `brain_items` — id, tenant_id, type, title, file_name, file_path, mime_type, file_size
+
 ### Creating a new plugin
 
 See `clawdbot/extensions/image-gen/` as a reference. A plugin needs:
@@ -458,44 +492,61 @@ The `api-tools` plugin lets you add API capabilities to agents without writing T
 ### YAML tool definition schema
 
 ```yaml
-name: publish_linkedin                    # Tool name (must match [a-z][a-z0-9_]*)
-description: Publish a text post to LinkedIn
+name: save_post                           # Tool name (must match [a-z][a-z0-9_]*)
+description: Save a post to the content calendar
 
 parameters:                               # LLM sees these as typed tool params
-  text:
+  platform:
     type: string                          # string, number, integer, boolean
-    description: Post content
+    description: Target platform
     required: true
-  visibility:
+    enum: ["youtube", "instagram", "facebook", "linkedin", "tiktok"]
+  content:
     type: string
-    description: Post visibility
-    enum: ["PUBLIC", "CONNECTIONS"]       # Optional enum constraint
-    default: "PUBLIC"                     # Optional default value
+    description: Post body text
+    required: true
+  title:
+    type: string
+    description: Short title for calendar display
+  scheduled_date:
+    type: string
+    description: ISO 8601 datetime
+    required: true
+  status:
+    type: string
+    description: Post status
+    enum: ["draft", "scheduled"]          # Optional enum constraint
+    default: "draft"                      # Optional default value
 
 request:
   method: POST                            # GET, POST, PUT, PATCH, DELETE
-  url: "https://api.linkedin.com/rest/posts"
+  url: "{{env.SUPABASE_URL}}/rest/v1/posts"
   headers:
-    Authorization: "Bearer {{env.LINKEDIN_ACCESS_TOKEN}}"
+    Authorization: "Bearer {{env.SUPABASE_SERVICE_KEY}}"
+    apikey: "{{env.SUPABASE_SERVICE_KEY}}"
     Content-Type: "application/json"
   body:
     type: json                            # json, form, or text
     content:
-      author: "urn:li:person:{{env.LINKEDIN_PERSON_URN}}"
-      commentary: "{{params.text}}"
-      visibility: "{{params.visibility}}"
+      tenant_id: "{{env.TENANT_ID}}"
+      agent_slug: "somi"
+      platform: "{{params.platform}}"
+      content: "{{params.content}}"
+      title: "{{params.title}}"
+      scheduled_date: "{{params.scheduled_date}}"
+      status: "{{params.status}}"
   timeout_ms: 15000                       # Max 60000, default 30000
 
 response:
-  summary: "Post published. ID: {{response.id}}"
-  error_template: "LinkedIn error ({{response.status}}): {{response.message}}"
+  summary: "Post saved to calendar."
+  error_template: "Save error ({{response.status}}): {{response.message}}"
 
 requires_env:                             # Checked before request
-  - LINKEDIN_ACCESS_TOKEN
-  - LINKEDIN_PERSON_URN
+  - SUPABASE_URL
+  - SUPABASE_SERVICE_KEY
 
 allowed_hosts:                            # URL must match one of these (required)
-  - api.linkedin.com
+  - "*.supabase.co"
 ```
 
 ### Template variables
@@ -603,7 +654,6 @@ allowed_hosts:
 
 | Tool | YAML file | What it does |
 |------|-----------|-------------|
-| `publish_linkedin` | `agents/somi/api-tools/publish_linkedin.yaml` | Publish a post to LinkedIn via their API |
 | `save_post` | `agents/somi/api-tools/save_post.yaml` | Save a post to the content calendar (Supabase `posts` table) |
 
 ---
@@ -860,7 +910,7 @@ console.log(tools.map(t => t.name))  // Should include your plugin tool
 - [ ] Update `templates.ts` — add tool name to `requiredTools.alsoAllow`, ensure `api-tools` is in `plugins`:
   ```ts
   requiredTools: {
-    alsoAllow: ['generate_image', 'publish_linkedin', 'my_tool'],
+    alsoAllow: ['generate_image', 'save_post', 'my_tool'],
     plugins: ['image-gen', 'api-tools'],
   },
   ```

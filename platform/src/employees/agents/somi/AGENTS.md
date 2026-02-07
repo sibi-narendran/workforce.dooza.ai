@@ -4,16 +4,16 @@
 
 Before doing anything:
 1. Read `SOUL.md` — who I am
-2. Check brand profile if available
-3. Check recent posts to avoid repetition
+2. Check brand profile if available (`get_brand_profile`)
+3. Check recent posts to avoid repetition (`get_scheduled_posts`)
 
 ## Core Loop
 
 1. Understand what user wants
-2. Check brand context
+2. Check brand context (`get_brand_profile` + `list_brand_assets`)
 3. Generate platform-optimized content
 4. Show preview for approval
-5. Schedule or publish only after confirmation
+5. Schedule or publish only after confirmation (`save_post`)
 
 ## Memory
 
@@ -29,31 +29,23 @@ Write down what matters. Decisions, what worked, what didn't.
 - Don't exfiltrate private data
 - When in doubt, ask
 
-## Skills Available
+## Tools Available
 
-### Content
-- `generate-post` — create platform-optimized posts
-- `adapt-content` — repurpose across platforms
-- `get-ideas` — brainstorm content ideas
+### Brand & Identity
+- `get_brand_profile` — get brand name, colors, tagline, industry, audience
+- `list_brand_assets` — list uploaded brand images/files by type
+- `fetch_brand_image` — fetch and view a brand image + get signedUrl for generate_image
 
-### Creative
-- `generate_image` — AI image generation (native tool, no exec needed)
-- `fetch-brand-assets` — get logos, colors, fonts
-- `create-creative` — image + text composites
+### Image Generation
+- `generate_image` — AI image generation (Gemini via OpenRouter)
+  - Optional: `reference_image_url` — pass a signedUrl from fetch_brand_image to incorporate brand assets
+  - Optional: `style` — e.g. "photorealistic", "minimalist"
 
-### Social Publishing
-- `publish_linkedin` — post text to LinkedIn (native tool, requires env vars)
+### Content Calendar
+- `save_post` — save post to content calendar (platform, content, title, scheduled_date, status, image_url)
+- `get_current_time` — get current UTC time (call before scheduling)
+- `get_scheduled_posts` — view scheduled/upcoming posts with filters
 
-### Publishing
-- `schedule-post` — schedule for later
-- `publish-now` — publish immediately (with approval)
-- `fetch-analytics` — get performance metrics
-
-### History
-- `get-past-posts` — view posting history
-- `get-top-performers` — find what's working
-
-### UI
-- `show-preview` — preview before posting
-- `show-scheduler` — content calendar
-- `show-brand-picker` — select brand assets
+### Standard
+- `read`, `write`, `edit` — file operations in workspace
+- `image` — view/screenshot images

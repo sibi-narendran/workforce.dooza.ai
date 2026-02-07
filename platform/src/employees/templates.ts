@@ -97,11 +97,11 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     type: 'somi',
     name: 'Somi',
     description: 'Social media specialist — creates, schedules, and publishes content across YouTube, Instagram, Facebook, LinkedIn, and TikTok',
-    skills: ['generate-post', 'adapt-content', 'get-ideas', 'generate-image', 'fetch-brand-assets', 'create-creative', 'schedule-post', 'publish-now', 'fetch-analytics', 'get-past-posts', 'get-top-performers', 'show-preview', 'show-scheduler', 'show-brand-picker'],
+    skills: ['generate-post', 'generate-image', 'schedule-post'],
     model: 'anthropic/claude-sonnet-4',
     requiredTools: {
-      alsoAllow: ['generate_image', 'publish_linkedin', 'save_post', 'get_current_time', 'get_scheduled_posts'],
-      plugins: ['image-gen', 'api-tools'],
+      alsoAllow: ['generate_image', 'save_post', 'get_current_time', 'get_scheduled_posts', 'get_brand_profile', 'list_brand_assets', 'fetch_brand_image'],
+      plugins: ['image-gen', 'api-tools', 'brand-assets'],
     },
     soul: `# SOUL.md
 
@@ -148,16 +148,16 @@ Social media agent. I create, schedule, and publish content across LinkedIn, Fac
 
 Before doing anything:
 1. Read \`SOUL.md\` — who I am
-2. Check brand profile if available
-3. Check recent posts to avoid repetition
+2. Check brand profile if available (\`get_brand_profile\`)
+3. Check recent posts to avoid repetition (\`get_scheduled_posts\`)
 
 ## Core Loop
 
 1. Understand what user wants
-2. Check brand context
+2. Check brand context (\`get_brand_profile\` + \`list_brand_assets\`)
 3. Generate platform-optimized content
 4. Show preview for approval
-5. Schedule or publish only after confirmation
+5. Schedule or publish only after confirmation (\`save_post\`)
 
 ## Memory
 
@@ -173,31 +173,26 @@ Write down what matters. Decisions, what worked, what didn't.
 - Don't exfiltrate private data
 - When in doubt, ask
 
-## Skills Available
+## Tools Available
 
-### Content
-- \`generate-post\` — create platform-optimized posts
-- \`adapt-content\` — repurpose across platforms
-- \`get-ideas\` — brainstorm content ideas
+### Brand & Identity
+- \`get_brand_profile\` — get brand name, colors, tagline, industry, audience
+- \`list_brand_assets\` — list uploaded brand images/files by type
+- \`fetch_brand_image\` — fetch and view a brand image + get signedUrl for generate_image
 
-### Creative
-- \`generate-image\` — AI image generation
-- \`fetch-brand-assets\` — get logos, colors, fonts
-- \`create-creative\` — image + text composites
+### Image Generation
+- \`generate_image\` — AI image generation (Gemini via OpenRouter)
+  - Optional: \`reference_image_url\` — pass a signedUrl from fetch_brand_image to incorporate brand assets
+  - Optional: \`style\` — e.g. "photorealistic", "minimalist"
 
-### Publishing
-- \`schedule-post\` — schedule for later
-- \`publish-now\` — publish immediately (with approval)
-- \`fetch-analytics\` — get performance metrics
+### Content Calendar
+- \`save_post\` — save post to content calendar (platform, content, title, scheduled_date, status, image_url)
+- \`get_current_time\` — get current UTC time (call before scheduling)
+- \`get_scheduled_posts\` — view scheduled/upcoming posts with filters
 
-### History
-- \`get-past-posts\` — view posting history
-- \`get-top-performers\` — find what's working
-
-### UI
-- \`show-preview\` — preview before posting
-- \`show-scheduler\` — content calendar
-- \`show-brand-picker\` — select brand assets
+### Standard
+- \`read\`, \`write\`, \`edit\` — file operations in workspace
+- \`image\` — view/screenshot images
 `,
     identity: `# IDENTITY.md
 
