@@ -10,6 +10,55 @@ import { db } from '../../db/client.js'
 import { brainBrand, brainItems } from '../../db/schema.js'
 import * as storage from '../../lib/brain-storage.js'
 
+/**
+ * Ensure a brain_items row exists for the brand logo so it's discoverable
+ * via list_brand_assets / fetch_brand_image in the brand-assets plugin.
+ * Uses upsert-like logic: deletes any previous "Brand Logo" item for the tenant,
+ * then inserts a fresh one pointing to the current storage path.
+ */
+async function ensureLogoBrainItem(
+  tenantId: string,
+  storagePath: string,
+  sourceUrl?: string
+): Promise<void> {
+  try {
+    // Remove any previous brand logo items for this tenant
+    const existing = await db.select().from(brainItems)
+      .where(and(
+        eq(brainItems.tenantId, tenantId),
+        eq(brainItems.title, 'Brand Logo')
+      ))
+
+    for (const item of existing) {
+      await db.delete(brainItems).where(eq(brainItems.id, item.id))
+    }
+
+    // Determine mime type from file extension
+    const ext = storagePath.split('.').pop()?.toLowerCase() || 'png'
+    const mimeMap: Record<string, string> = {
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+      gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon',
+    }
+
+    const fileName = storagePath.split('/').pop() || 'brand-logo.png'
+
+    await db.insert(brainItems).values({
+      tenantId,
+      type: 'image',
+      title: 'Brand Logo',
+      fileName,
+      filePath: storagePath,
+      mimeType: mimeMap[ext] || 'image/png',
+      fileSize: 0, // size unknown from this path, not critical
+    })
+
+    console.log(`[Brain] Created brain_items entry for brand logo: ${storagePath}`)
+  } catch (error) {
+    // Non-fatal — logo is still in storage and brain_brand.logo_url, just not in brain_items
+    console.warn('[Brain] Failed to create brain_items entry for logo:', error)
+  }
+}
+
 const brainRouter = new Hono()
 
 // Apply auth and tenant middleware to all routes
@@ -469,6 +518,11 @@ brainRouter.post('/brand', async (c) => {
         updatedAt: new Date(),
       })
       .where(eq(brainBrand.tenantId, tenantId))
+
+    // If logoUrl changed, ensure brain_items entry exists
+    if (body.logoUrl && body.logoUrl !== existing.logoUrl) {
+      await ensureLogoBrainItem(tenantId, body.logoUrl)
+    }
   } else {
     // Insert new
     await db.insert(brainBrand).values({
@@ -485,6 +539,11 @@ brainRouter.post('/brand', async (c) => {
       socialLinks: body.socialLinks,
       logoUrl: body.logoUrl,
     })
+
+    // Create brain_items entry for the logo
+    if (body.logoUrl) {
+      await ensureLogoBrainItem(tenantId, body.logoUrl)
+    }
   }
 
   return c.json({ success: true })
