@@ -248,7 +248,6 @@ platform/src/employees/agents/{slug}/
 ├── HEARTBEAT.md    # Periodic check tasks (optional)
 ├── MEMORY.md       # Long-term memory seed (optional)
 ├── USER.md         # User-facing instructions (optional)
-├── canvas/         # Output directory for generated files (optional)
 ├── memory/         # Memory directory — preserved across updates (optional)
 └── skills/         # Skill definitions (optional)
     └── {skill-name}/
@@ -394,7 +393,7 @@ Located in `clawdbot/extensions/`:
 |-----------|------|------------------|
 | `memory-core` | memory | File-backed memory search |
 | `memory-lancedb` | memory | LanceDB vector memory |
-| `image-gen` | tools | `generate_image` tool (OpenRouter Gemini) |
+| `image-gen` | tools | `generate_image` tool (OpenRouter Gemini) — uploads to Supabase Storage |
 | `api-tools` | tools | Generic API tools from YAML definitions |
 | `voice-call` | channel | Voice call channel |
 | `composio-direct` | tools | Composio tool integrations |
@@ -402,6 +401,34 @@ Located in `clawdbot/extensions/`:
 | `telegram` | channel | Telegram messaging |
 | `discord` | channel | Discord messaging |
 | `whatsapp` | channel | WhatsApp messaging |
+
+### Image Generation & Media Storage
+
+The `image-gen` plugin (`clawdbot/extensions/image-gen/index.ts`) generates images via OpenRouter and uploads them to **Supabase Storage** (public `media` bucket). It does NOT save to local disk.
+
+**How it works:**
+1. Plugin calls OpenRouter (Gemini 3 Pro Image Preview) to generate an image
+2. Extracts base64 image data from the response
+3. Uploads to Supabase Storage at path: `media/{tenantId}/{agentId}/{filename}`
+4. Returns a public CDN-backed URL: `https://{project}.supabase.co/storage/v1/object/public/media/{tenantId}/{agentId}/{filename}`
+
+**Environment variables required** (passed to gateway via `ecosystem.config.cjs`):
+- `SUPABASE_URL` — Supabase project URL
+- `SUPABASE_SERVICE_KEY` — Service role key (for upload auth)
+- `OPENROUTER_API_KEY` — OpenRouter API key (for image generation)
+
+**Supabase Storage setup:**
+- Bucket: `media` (public, 10MB limit, image MIME types only)
+- Setup script: `npx tsx platform/scripts/setup-media-bucket.ts`
+- RLS: service role has full access; public read for anonymous
+
+**Frontend rendering** (`platform/web/src/pages/Chat.tsx`):
+- `renderMessageContent()` detects Supabase Storage URLs via regex
+- Pattern: `https://{project}.supabase.co/storage/v1/object/public/media/....(png|jpg|jpeg|webp|gif)`
+- Renders matched URLs as `<img>` tags with `loading="lazy"`
+- No local file serving — images load directly from Supabase CDN
+
+**Tenant isolation:** Each tenant's images are namespaced under `media/{tenantId}/`. The bucket is public (read-only for CDN), but only the gateway (with service key) can upload.
 
 ### Creating a new plugin
 
@@ -667,3 +694,24 @@ console.log(tools.map(t => t.name))  // Should include your plugin tool
 - [ ] Insert into `agent_library` database table
 - [ ] Restart platform to trigger sync
 - [ ] Agent gets default tools: read, write, edit, image, sessions_*, session_status
+
+### Adding a New API Tool
+
+> Only works for agents that have a template directory under `platform/src/employees/agents/{slug}/`.
+> Currently only `somi` has one. For other agents, create the directory first.
+
+- [ ] Create YAML file: `platform/src/employees/agents/{agent-slug}/api-tools/my_tool.yaml`
+  - Must include: `name`, `description`, `parameters`, `request`, `allowed_hosts`
+  - `name` field must be `snake_case` and match what you add to `alsoAllow`
+  - Add `requires_env` if the tool needs API keys (tenant must have these configured)
+- [ ] Update `templates.ts` — add tool name to `requiredTools.alsoAllow`, ensure `api-tools` is in `plugins`:
+  ```ts
+  requiredTools: {
+    alsoAllow: ['generate_image', 'publish_linkedin', 'my_tool'],
+    plugins: ['image-gen', 'api-tools'],
+  },
+  ```
+- [ ] Restart: `pm2 restart platform && pm2 restart gateway`
+  - Platform sync copies YAML to all tenants and updates `clawdbot.json` (requires DB to be up)
+  - Gateway reload picks up the new tool definition
+- [ ] Verify: check tenant's `agents/{slug}/api-tools/` has the new YAML

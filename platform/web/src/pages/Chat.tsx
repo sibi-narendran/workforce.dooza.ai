@@ -6,6 +6,76 @@ import { WorkspaceButton, WorkspacePanel } from '../components/workspace'
 import { StreamingClient, sendStreamingChat } from '../lib/streaming'
 import { useChatStore, useChatMessages, useStreamingContent, useIsStreaming } from '../lib/chat-store'
 
+/**
+ * Detect Supabase Storage image URLs in message content and render them as <img> tags.
+ * Strips markdown image syntax ![alt](url) and bare URLs alike.
+ * Matches: ![...](https://{project}.supabase.co/.../media/....png) or bare URL
+ */
+function renderMessageContent(content: string) {
+  // Match markdown image syntax ![alt](url) first, then bare URL as fallback
+  const imagePattern = /!\[[^\]]*\]\((https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/media\/[^\s)]+\.(?:png|jpg|jpeg|webp|gif))\)|https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/media\/[^\s)]+\.(?:png|jpg|jpeg|webp|gif)/g
+
+  const parts: Array<{ type: 'text' | 'image'; value: string }> = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = imagePattern.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', value: content.slice(lastIndex, match.index) })
+    }
+    // Group 1 has the URL from markdown syntax; full match for bare URLs
+    const url = match[1] || match[0]
+    parts.push({ type: 'image', value: url })
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < content.length) {
+    parts.push({ type: 'text', value: content.slice(lastIndex) })
+  }
+
+  // Clean text parts: strip JSON image-metadata artifacts the LLM sometimes echoes,
+  // then filter out parts that are empty after cleaning
+  const filtered = parts
+    .map((part) => {
+      if (part.type === 'image') return part
+      // Remove inline JSON artifacts like { "image": "Generated image" } (possibly multiline)
+      const cleaned = part.value.replace(/\{\s*"image"\s*:\s*"[^"]*"\s*\}/g, '')
+      return { ...part, value: cleaned }
+    })
+    .filter((part) => part.type === 'image' || part.value.trim().length > 0)
+
+  if (filtered.length === 0) {
+    return null
+  }
+
+  if (filtered.length === 1 && filtered[0].type === 'text') {
+    return <span style={{ whiteSpace: 'pre-wrap' }}>{content}</span>
+  }
+
+  return (
+    <>
+      {filtered.map((part, i) =>
+        part.type === 'text' ? (
+          <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{part.value}</span>
+        ) : (
+          <img
+            key={i}
+            src={part.value}
+            alt="Generated image"
+            loading="lazy"
+            style={{
+              maxWidth: '100%',
+              borderRadius: 'var(--radius-md)',
+              margin: '8px 0',
+              display: 'block',
+            }}
+          />
+        )
+      )}
+    </>
+  )
+}
+
 export function Chat() {
   const { id } = useParams<{ id: string }>()
   const { session } = useAuthStore()
@@ -301,7 +371,11 @@ export function Chat() {
                         : 'none',
                   }}
                 >
-                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{msg.content}</div>
+                  <div style={{ lineHeight: 1.5 }}>
+                    {msg.role === 'assistant'
+                      ? renderMessageContent(msg.content)
+                      : <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>}
+                  </div>
                   <div
                     style={{
                       fontSize: 10,
@@ -335,8 +409,8 @@ export function Chat() {
                     border: '1px solid var(--border)',
                   }}
                 >
-                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                    {streamingContent}
+                  <div style={{ lineHeight: 1.5 }}>
+                    {renderMessageContent(streamingContent)}
                     <span
                       style={{
                         display: 'inline-block',

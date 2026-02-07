@@ -13,7 +13,7 @@ OAuth tokens stored per-tenant.
 ## Image Generation
 
 Use the `generate_image` tool directly — no exec needed. It calls OpenRouter's Gemini 3 Pro
-Image Preview model and saves the result to `canvas/`. Include brand colors in prompt when available.
+Image Preview model, uploads the result to Supabase Storage, and returns a public URL. Include brand colors in prompt when available.
 
 ## Database
 

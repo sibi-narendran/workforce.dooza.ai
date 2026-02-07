@@ -72,6 +72,17 @@ Structure:
 └── agents/{slug}/      # Per-agent data
 ```
 
+## Supabase Storage
+
+Two buckets are used:
+
+| Bucket | Visibility | Purpose |
+|--------|-----------|---------|
+| `brain` | Private | Agent memory/knowledge files |
+| `media` | Public | Generated images (CDN-backed, no auth to read) |
+
+**Media bucket** — used by `image-gen` plugin. Images upload to `media/{tenantId}/{agentId}/{filename}`. Public URLs are returned to the LLM and rendered inline in the frontend. Setup: `npx tsx platform/scripts/setup-media-bucket.ts`. Gateway needs `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` env vars (passed via `ecosystem.config.cjs`).
+
 ## Code Conventions
 - TypeScript strict mode
 - ESM modules
