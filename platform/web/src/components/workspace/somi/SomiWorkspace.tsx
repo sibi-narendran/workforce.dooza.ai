@@ -1,40 +1,89 @@
-import { useState } from 'react'
-import type { ScheduledPost } from './somi.types'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import type { Employee } from '../../../lib/api'
+import { postsApi } from '../../../lib/api'
+import { useAuthStore } from '../../../lib/store'
+import type { ScheduledPost, Platform } from './somi.types'
 import { SomiCalendar } from './SomiCalendar'
+import { SomiPostList } from './SomiPostList'
 
-// Mock data for demo
-const initialPosts: ScheduledPost[] = [
-  {
-    id: '1',
-    title: 'Product launch',
-    content: 'Announcing our new feature!',
-    platform: 'twitter',
-    scheduledDate: new Date(Date.now() + 86400000 * 2),
-    status: 'scheduled',
-  },
-  {
-    id: '2',
-    title: 'Behind the scenes',
-    content: 'Check out our team at work',
-    platform: 'instagram',
-    scheduledDate: new Date(Date.now() + 86400000 * 3),
-    status: 'draft',
-  },
-  {
-    id: '3',
-    title: 'Industry insights',
-    content: 'Our thoughts on the latest trends',
-    platform: 'linkedin',
-    scheduledDate: new Date(),
-    status: 'published',
-  },
-]
+type StatusTab = 'scheduled' | 'approved'
 
-export function SomiWorkspace() {
-  const [posts, setPosts] = useState<ScheduledPost[]>(initialPosts)
+interface SomiWorkspaceProps {
+  employee: Employee | null
+}
+
+function getToday(): Date {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function formatMonth(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
+  const [posts, setPosts] = useState<ScheduledPost[]>([])
   const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [startDate, setStartDate] = useState(getToday)
+  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<StatusTab>('scheduled')
+  const session = useAuthStore((s) => s.session)
+
+  // The 14-day window may span 2 months — compute which months to fetch
+  const monthsToFetch = useMemo(() => {
+    const endDate = new Date(startDate)
+    endDate.setDate(endDate.getDate() + 13)
+    const m1 = formatMonth(startDate)
+    const m2 = formatMonth(endDate)
+    return m1 === m2 ? [m1] : [m1, m2]
+  }, [startDate])
+
+  const fetchPosts = useCallback(async () => {
+    if (!session?.accessToken || !employee) return
+    setLoading(true)
+    try {
+      const results = await Promise.all(
+        monthsToFetch.map((month) =>
+          postsApi.list(session.accessToken, { month, agentSlug: 'somi' })
+        )
+      )
+      // Merge and dedupe by id
+      const all = results.flatMap((r) => r.posts)
+      const unique = Array.from(new Map(all.map((p) => [p.id, p])).values())
+      setPosts(unique as unknown as ScheduledPost[])
+    } catch (err) {
+      console.error('Failed to fetch posts:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [session?.accessToken, employee, monthsToFetch])
+
+  useEffect(() => {
+    fetchPosts()
+  }, [fetchPosts])
+
+  const filteredPosts = useMemo(() => {
+    if (activeTab === 'scheduled') {
+      return posts.filter((p) => p.status === 'draft' || p.status === 'scheduled')
+    }
+    return posts.filter((p) => p.status === 'published')
+  }, [posts, activeTab])
+
+  const handleNavigate = (direction: 'prev' | 'next' | 'today') => {
+    if (direction === 'today') {
+      setStartDate(getToday())
+    } else {
+      const shift = direction === 'next' ? 7 : -7
+      setStartDate((prev) => {
+        const d = new Date(prev)
+        d.setDate(d.getDate() + shift)
+        return d
+      })
+    }
+  }
 
   const handleAddPost = (date: Date) => {
     setSelectedDate(date)
@@ -45,42 +94,71 @@ export function SomiWorkspace() {
     setSelectedPost(post)
   }
 
-  const handleCreatePost = (title: string, platform: ScheduledPost['platform']) => {
-    if (!selectedDate) return
+  const handleCreatePost = async (title: string, content: string, platform: Platform, imageUrl: string) => {
+    if (!selectedDate || !session?.accessToken || !employee) return
 
-    const newPost: ScheduledPost = {
-      id: crypto.randomUUID(),
-      title,
-      content: '',
-      platform,
-      scheduledDate: selectedDate,
-      status: 'draft',
+    try {
+      const { post } = await postsApi.create(session.accessToken, {
+        agentSlug: 'somi',
+        platform,
+        title: title || undefined,
+        content,
+        imageUrl: imageUrl || undefined,
+        scheduledDate: selectedDate.toISOString(),
+        status: 'draft',
+      })
+      setPosts((prev) => [...prev, post as unknown as ScheduledPost])
+      setShowAddModal(false)
+      setSelectedDate(null)
+    } catch (err) {
+      console.error('Failed to create post:', err)
     }
-    setPosts((prev) => [...prev, newPost])
-    setShowAddModal(false)
-    setSelectedDate(null)
   }
 
-  const handleDeletePost = (id: string) => {
-    setPosts((prev) => prev.filter((p) => p.id !== id))
-    setSelectedPost(null)
+  const handleDeletePost = async (id: string) => {
+    if (!session?.accessToken) return
+    try {
+      await postsApi.delete(session.accessToken, id)
+      setPosts((prev) => prev.filter((p) => p.id !== id))
+      setSelectedPost(null)
+    } catch (err) {
+      console.error('Failed to delete post:', err)
+    }
   }
 
   return (
     <div className="somi-workspace">
       <div className="somi-workspace__header">
         <h3>Content Calendar</h3>
-        <div className="somi-workspace__stats">
-          <span className="badge badge-primary">{posts.filter((p) => p.status === 'scheduled').length} scheduled</span>
-          <span className="badge badge-warn">{posts.filter((p) => p.status === 'draft').length} drafts</span>
-        </div>
+      </div>
+
+      <div className="somi-tabs">
+        <button
+          className={`somi-tabs__tab ${activeTab === 'scheduled' ? 'somi-tabs__tab--active' : ''}`}
+          onClick={() => setActiveTab('scheduled')}
+        >
+          Scheduled
+          <span className="somi-tabs__count">{posts.filter((p) => p.status === 'draft' || p.status === 'scheduled').length}</span>
+        </button>
+        <button
+          className={`somi-tabs__tab ${activeTab === 'approved' ? 'somi-tabs__tab--active' : ''}`}
+          onClick={() => setActiveTab('approved')}
+        >
+          Approved
+          <span className="somi-tabs__count">{posts.filter((p) => p.status === 'published').length}</span>
+        </button>
       </div>
 
       <SomiCalendar
-        posts={posts}
+        posts={filteredPosts}
+        startDate={startDate}
         onAddPost={handleAddPost}
         onSelectPost={handleSelectPost}
+        onNavigate={handleNavigate}
+        loading={loading}
       />
+
+      <SomiPostList posts={filteredPosts} onSelectPost={handleSelectPost} />
 
       {/* Add Post Modal */}
       {showAddModal && (
@@ -106,8 +184,10 @@ export function SomiWorkspace() {
                   e.preventDefault()
                   const form = e.target as HTMLFormElement
                   const title = (form.elements.namedItem('title') as HTMLInputElement).value
-                  const platform = (form.elements.namedItem('platform') as HTMLSelectElement).value as ScheduledPost['platform']
-                  handleCreatePost(title, platform)
+                  const content = (form.elements.namedItem('content') as HTMLTextAreaElement).value
+                  const platform = (form.elements.namedItem('platform') as HTMLSelectElement).value as Platform
+                  const imageUrl = (form.elements.namedItem('imageUrl') as HTMLInputElement).value
+                  handleCreatePost(title, content, platform, imageUrl)
                 }}
               >
                 <div className="form-group">
@@ -115,19 +195,38 @@ export function SomiWorkspace() {
                   <input
                     name="title"
                     className="input"
-                    placeholder="Post title"
+                    placeholder="Short title for calendar"
+                  />
+                </div>
+                <div className="form-group" style={{ marginTop: 12 }}>
+                  <label className="form-label">Content</label>
+                  <textarea
+                    name="content"
+                    className="input"
+                    placeholder="Post caption / body text"
                     required
-                    autoFocus
+                    rows={4}
+                    style={{ resize: 'vertical' }}
                   />
                 </div>
                 <div className="form-group" style={{ marginTop: 12 }}>
                   <label className="form-label">Platform</label>
                   <select name="platform" className="input">
-                    <option value="twitter">Twitter</option>
+                    <option value="youtube">YouTube</option>
                     <option value="instagram">Instagram</option>
-                    <option value="linkedin">LinkedIn</option>
                     <option value="facebook">Facebook</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="tiktok">TikTok</option>
                   </select>
+                </div>
+                <div className="form-group" style={{ marginTop: 12 }}>
+                  <label className="form-label">Image URL (optional)</label>
+                  <input
+                    name="imageUrl"
+                    className="input"
+                    placeholder="https://..."
+                    type="url"
+                  />
                 </div>
                 <button type="submit" className="btn btn-primary" style={{ marginTop: 16, width: '100%' }}>
                   Create Post
@@ -143,7 +242,7 @@ export function SomiWorkspace() {
         <div className="somi-modal-overlay" onClick={() => setSelectedPost(null)}>
           <div className="somi-modal" onClick={(e) => e.stopPropagation()}>
             <div className="somi-modal__header">
-              <h4>{selectedPost.title}</h4>
+              <h4>{selectedPost.title || selectedPost.content.slice(0, 40)}</h4>
               <button
                 className="btn btn-ghost"
                 onClick={() => setSelectedPost(null)}
@@ -159,13 +258,14 @@ export function SomiWorkspace() {
                 <span className={`badge ${
                   selectedPost.status === 'published' ? 'badge-ok' :
                   selectedPost.status === 'scheduled' ? 'badge-primary' :
+                  selectedPost.status === 'failed' ? 'badge-danger' :
                   'badge-warn'
                 }`}>
                   {selectedPost.status}
                 </span>
               </div>
-              <p style={{ color: 'var(--muted)', marginBottom: 16 }}>
-                {selectedPost.scheduledDate.toLocaleDateString('en-US', {
+              <p style={{ color: 'var(--muted)', marginBottom: 12 }}>
+                {new Date(selectedPost.scheduledDate).toLocaleDateString('en-US', {
                   weekday: 'long',
                   month: 'long',
                   day: 'numeric',
@@ -173,6 +273,16 @@ export function SomiWorkspace() {
                   minute: '2-digit',
                 })}
               </p>
+              <p style={{ marginBottom: 16, whiteSpace: 'pre-wrap' }}>{selectedPost.content}</p>
+              {selectedPost.imageUrl && (
+                <div style={{ marginBottom: 16 }}>
+                  <img
+                    src={selectedPost.imageUrl}
+                    alt="Post image"
+                    style={{ maxWidth: '100%', borderRadius: 8, maxHeight: 200, objectFit: 'cover' }}
+                  />
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   className="btn btn-danger"

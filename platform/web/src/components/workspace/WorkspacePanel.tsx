@@ -44,7 +44,7 @@ export function WorkspacePanel({ isOpen, onClose, employee }: WorkspacePanelProp
               </div>
             }
           >
-            <WorkspaceComponent />
+            <WorkspaceComponent employee={employee} />
           </Suspense>
         </div>
       </div>

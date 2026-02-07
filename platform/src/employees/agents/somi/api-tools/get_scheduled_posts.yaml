@@ -1,0 +1,54 @@
+name: get_scheduled_posts
+description: Query the content calendar to see scheduled posts. Use to check for conflicts, review upcoming content, or find posts by platform/status/month.
+
+parameters:
+  status:
+    type: string
+    description: "Filter by post status"
+    enum: ["draft", "scheduled", "published", "failed"]
+  platform:
+    type: string
+    description: "Filter by platform"
+    enum: ["youtube", "instagram", "facebook", "linkedin", "tiktok"]
+  upcoming_only:
+    type: string
+    description: "Only show future posts (default 'true'). Set to 'false' to include past posts."
+    default: "true"
+  month:
+    type: string
+    description: "Filter by month in YYYY-MM format, e.g. '2026-02'"
+  limit:
+    type: integer
+    description: "Max posts to return (1-50, default 10)"
+    default: 10
+
+request:
+  method: POST
+  url: "{{env.SUPABASE_URL}}/rest/v1/rpc/get_scheduled_posts"
+  headers:
+    apikey: "{{env.SUPABASE_SERVICE_KEY}}"
+    Authorization: "Bearer {{env.SUPABASE_SERVICE_KEY}}"
+    Content-Type: "application/json"
+  body:
+    type: json
+    content:
+      p_tenant_id: "{{env.TENANT_ID}}"
+      p_agent_slug: "somi"
+      p_status: "{{params.status}}"
+      p_platform: "{{params.platform}}"
+      p_upcoming_only: "{{params.upcoming_only}}"
+      p_month: "{{params.month}}"
+      p_limit: "{{params.limit}}"
+  timeout_ms: 10000
+
+response:
+  summary: "Found {{response.total_count}} posts (showing {{response.returned}})"
+  error_template: "Failed to query posts: {{response.message}}"
+
+requires_env:
+  - SUPABASE_URL
+  - SUPABASE_SERVICE_KEY
+  - TENANT_ID
+
+allowed_hosts:
+  - "*.supabase.co"

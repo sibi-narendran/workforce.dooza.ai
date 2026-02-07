@@ -394,6 +394,26 @@ export const jobsApi = {
     api<{ execution: JobExecution }>(`/jobs/${id}/run`, { method: 'POST', token }),
 }
 
+// Posts
+export const postsApi = {
+  list: (token: string, params?: { month?: string; agentSlug?: string }) => {
+    const query = new URLSearchParams()
+    if (params?.month) query.set('month', params.month)
+    if (params?.agentSlug) query.set('agentSlug', params.agentSlug)
+    const qs = query.toString()
+    return api<{ posts: Post[] }>(`/posts${qs ? `?${qs}` : ''}`, { token })
+  },
+
+  create: (token: string, data: CreatePostInput) =>
+    api<{ post: Post }>('/posts', { method: 'POST', body: data, token }),
+
+  update: (token: string, id: string, data: Partial<CreatePostInput>) =>
+    api<{ post: Post }>(`/posts/${id}`, { method: 'PATCH', body: data, token }),
+
+  delete: (token: string, id: string) =>
+    api(`/posts/${id}`, { method: 'DELETE', token }),
+}
+
 // Types
 export interface Employee {
   id: string
@@ -535,6 +555,33 @@ export interface UserConnection {
   providerIcon: string | null
   status: 'connected' | 'pending' | 'expired' | 'revoked'
   connectedAt: string
+}
+
+// Posts
+export interface Post {
+  id: string
+  tenantId: string
+  agentSlug: string | null
+  platform: string
+  title: string | null
+  content: string
+  imageUrl: string | null
+  scheduledDate: string
+  status: string
+  metadata: Record<string, unknown> | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreatePostInput {
+  agentSlug?: string
+  platform: 'youtube' | 'instagram' | 'facebook' | 'linkedin' | 'tiktok'
+  title?: string
+  content: string
+  imageUrl?: string
+  scheduledDate: string
+  status?: 'draft' | 'scheduled' | 'published' | 'failed'
+  metadata?: Record<string, unknown>
 }
 
 // Brain

@@ -66,6 +66,11 @@ export async function syncAgentConfigForAllTenants(agentSlug: string): Promise<{
         continue
       }
 
+      // Fix agentDir / workspace to match current TENANT_DATA_DIR
+      const correctAgentDir = tenantManager.getAgentDir(tenantId, agentSlug)
+      config.agents.list[agentIndex].agentDir = correctAgentDir
+      config.agents.list[agentIndex].workspace = correctAgentDir
+
       // Update per-agent tools from template (alsoAllow + sandbox allow)
       const toolsConfig = buildAgentToolsConfig(template)
       if (toolsConfig) {

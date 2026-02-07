@@ -1293,11 +1293,65 @@ button, input, textarea, select {
   gap: 8px;
 }
 
-/* Somi Calendar */
+/* Somi Tabs */
+.somi-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--gray-100);
+  padding: 3px;
+}
+
+.somi-tabs__tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-500);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
+}
+
+.somi-tabs__tab:hover {
+  color: var(--gray-700);
+}
+
+.somi-tabs__tab--active {
+  background: white;
+  color: var(--gray-900);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.somi-tabs__count {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--gray-200);
+  color: var(--gray-600);
+  padding: 1px 6px;
+  border-radius: 10px;
+  line-height: 1.4;
+}
+
+.somi-tabs__tab--active .somi-tabs__count {
+  background: var(--primary-100);
+  color: var(--primary-700);
+}
+
+/* Somi Calendar — 14-day rolling view */
 .somi-calendar {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .somi-calendar__header {
@@ -1313,50 +1367,27 @@ button, input, textarea, select {
 }
 
 .somi-calendar__title h3 {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--gray-900);
   margin: 0;
 }
 
-.somi-calendar__weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-}
-
-.somi-calendar__weekday {
-  padding: 8px 4px;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--gray-500);
-  text-transform: uppercase;
-}
-
 .somi-calendar__grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  gap: 6px;
 }
 
 .somi-calendar__day {
-  min-height: 100px;
+  min-height: 90px;
   padding: 8px;
-  border: 1px solid var(--gray-100);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
   background: white;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.somi-calendar__day:hover {
-  background: var(--gray-50);
-}
-
-.somi-calendar__day--outside {
-  background: var(--gray-50);
-  opacity: 0.5;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .somi-calendar__day--today {
@@ -1364,88 +1395,228 @@ button, input, textarea, select {
   background: var(--primary-50);
 }
 
-.somi-calendar__day--today:hover {
-  background: var(--primary-100);
+.somi-calendar__day--past {
+  opacity: 0.45;
+}
+
+.somi-calendar__day-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.somi-calendar__day-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.somi-calendar__day-weekday {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.somi-calendar__day--today .somi-calendar__day-weekday {
+  color: var(--primary-500);
 }
 
 .somi-calendar__day-number {
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--gray-600);
-  margin-bottom: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-800);
+  line-height: 1.1;
 }
 
 .somi-calendar__day--today .somi-calendar__day-number {
   color: var(--primary-700);
-  font-weight: 600;
 }
 
-.somi-calendar__day-posts {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.somi-calendar__more {
-  font-size: 10px;
+.somi-calendar__day--past .somi-calendar__day-number {
   color: var(--gray-500);
-  padding: 2px 4px;
 }
 
-/* Somi Post Card */
-.somi-post-card {
+.somi-calendar__day-add {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 4px;
-  border-radius: var(--radius-sm);
-  background: var(--gray-100);
+  justify-content: center;
+  color: var(--gray-400);
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.somi-calendar__day:hover .somi-calendar__day-add {
+  opacity: 1;
+}
+
+.somi-calendar__day-add:hover {
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+
+.somi-calendar__day-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: auto;
+}
+
+.somi-calendar__icon {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.somi-calendar__icon:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.somi-calendar__icon-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--gray-800);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  line-height: 1;
+}
+
+/* Somi Post List */
+.somi-post-list {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  background: white;
+  overflow: hidden;
+}
+
+.somi-post-list__header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.somi-post-list__header h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.somi-post-list__empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--gray-400);
+  font-size: 13px;
+}
+
+.somi-post-list__items {
+  display: flex;
+  flex-direction: column;
+}
+
+.somi-post-list__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--gray-100);
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
-.somi-post-card:hover {
-  background: var(--gray-200);
+.somi-post-list__item:last-child {
+  border-bottom: none;
 }
 
-.somi-post-card--draft {
-  border-left: 2px solid var(--warn);
+.somi-post-list__item:hover {
+  background: var(--gray-50);
 }
 
-.somi-post-card--scheduled {
-  border-left: 2px solid var(--primary-500);
+.somi-post-list__thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-.somi-post-card--published {
-  border-left: 2px solid var(--ok);
+.somi-post-list__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.somi-post-card__platform {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+.somi-post-list__thumb-placeholder {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+}
+
+.somi-post-list__platform {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
   font-weight: 700;
   color: white;
   flex-shrink: 0;
 }
 
-.somi-post-card__content {
+.somi-post-list__info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.somi-post-card__title {
-  font-size: 11px;
-  color: var(--gray-700);
+.somi-post-list__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-800);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: block;
+}
+
+.somi-post-list__date {
+  font-size: 11px;
+  color: var(--gray-500);
 }
 
 /* Somi Modals */
@@ -1463,6 +1634,9 @@ button, input, textarea, select {
 .somi-modal {
   width: 100%;
   max-width: 400px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
   background: white;
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
@@ -1486,6 +1660,9 @@ button, input, textarea, select {
 
 .somi-modal__body {
   padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 /* ======================
@@ -1535,15 +1712,24 @@ button, input, textarea, select {
   }
 
   .somi-calendar__day {
-    min-height: 60px;
-    padding: 4px;
+    min-height: 70px;
+    padding: 6px;
   }
 
   .somi-calendar__day-number {
-    font-size: 10px;
+    font-size: 14px;
   }
 
-  .somi-post-card__title {
-    font-size: 9px;
+  .somi-calendar__icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .somi-calendar__icon-badge {
+    width: 14px;
+    height: 14px;
+    font-size: 8px;
+    top: -4px;
+    right: -4px;
   }
 }

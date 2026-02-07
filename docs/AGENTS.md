@@ -525,9 +525,86 @@ platform/src/employees/agents/{slug}/api-tools/
 
 The `api-tools` plugin scans this directory per-session and registers each YAML file as a native tool.
 
-### Example: Somi's LinkedIn tool
+### How `{{env.VAR}}` resolves (three sources)
 
-`platform/src/employees/agents/somi/api-tools/publish_linkedin.yaml` — see the file for a complete working example.
+YAML tools reference environment variables with `{{env.VAR}}`. These are resolved from **three sources**, merged in priority order:
+
+```
+1. process.env               ← Gateway-level env vars (set in ecosystem.config.cjs)
+2. clawdbot.json → env       ← Per-tenant env vars (set by sync or manually)
+3. Automatic injection       ← TENANT_ID, AGENT_ID (extracted at runtime)
+```
+
+**Source 1: Gateway env vars** — Set in `ecosystem.config.cjs`. Available to ALL tenants/tools. Used for global keys like `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `OPENROUTER_API_KEY`.
+
+**Source 2: Tenant env vars** — Set in `~/data/tenants/{id}/clawdbot.json` under `"env": {}`. Per-tenant. The sync system can auto-populate these (see "Employee ID injection" below). Useful for per-tenant API keys like `LINKEDIN_ACCESS_TOKEN`.
+
+**Source 3: Auto-injected** — The `api-tools` plugin extracts `TENANT_ID` from the agent directory path and `AGENT_ID` from the session context. These are always available without configuration.
+
+The merge happens in `clawdbot/extensions/api-tools/index.ts`:
+```typescript
+extraEnv: {
+  ...tenantEnv,           // clawdbot.json → env (loaded via loadTenantEnv)
+  TENANT_ID: "...",       // extracted from agentDir path
+  AGENT_ID: "...",        // from session context
+}
+```
+
+This `extraEnv` is merged with `process.env` in the executor. Tenant env vars override process.env vars with the same name.
+
+### Agent slug in YAML tools
+
+YAML tools that write to the platform DB use a hardcoded `agent_slug` field (e.g., `"somi"`) to identify which agent created the record. This avoids needing a foreign key to the `employees` table — data is isolated by `tenant_id` and optionally filtered by `agent_slug` in the UI.
+
+```yaml
+body:
+  content:
+    tenant_id: "{{env.TENANT_ID}}"
+    agent_slug: "somi"           # Hardcoded — each agent's YAML knows its own slug
+```
+
+### Connecting YAML tools to Supabase (internal data pattern)
+
+For tools that need to read/write platform data (like the content calendar), use Supabase's PostgREST API directly. This avoids creating a new plugin — the existing `api-tools` plugin + YAML handles it.
+
+**Pattern:**
+```yaml
+request:
+  method: POST
+  url: "{{env.SUPABASE_URL}}/rest/v1/your_table"
+  headers:
+    apikey: "{{env.SUPABASE_SERVICE_KEY}}"
+    Authorization: "Bearer {{env.SUPABASE_SERVICE_KEY}}"
+    Content-Type: "application/json"
+    Prefer: "return=representation"       # Returns the created/updated row
+  body:
+    type: json
+    content:
+      tenant_id: "{{env.TENANT_ID}}"      # Auto-injected
+      agent_slug: "somi"                  # Hardcoded per-agent
+      ...
+
+allowed_hosts:
+  - "*.supabase.co"
+```
+
+**Why this works:**
+- `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are in the gateway's `process.env` (set in `ecosystem.config.cjs`)
+- `TENANT_ID` is auto-injected by the api-tools plugin
+- `agent_slug` is hardcoded in each agent's YAML tool (no DB lookup needed)
+- The service key has full PostgREST access (bypasses RLS)
+- `allowed_hosts: ["*.supabase.co"]` permits the request
+
+**Security note:** The service key gives full DB access. The YAML tool should only write to its own table. RLS policies on the Supabase side provide an additional safety layer for other consumers.
+
+**Example:** `platform/src/employees/agents/somi/api-tools/save_post.yaml` — writes to the `posts` table.
+
+### Example: Somi's tools
+
+| Tool | YAML file | What it does |
+|------|-----------|-------------|
+| `publish_linkedin` | `agents/somi/api-tools/publish_linkedin.yaml` | Publish a post to LinkedIn via their API |
+| `save_post` | `agents/somi/api-tools/save_post.yaml` | Save a post to the content calendar (Supabase `posts` table) |
 
 ---
 
@@ -538,7 +615,7 @@ On platform server startup, `syncAllAgentTemplates()` runs automatically:
 1. Iterates all templates in `EMPLOYEE_TEMPLATES`
 2. For each template with active installations:
    - **File sync**: Re-copies template files to each tenant (memory preserved)
-   - **Config sync**: Updates per-tenant `clawdbot.json` — sets `tools.alsoAllow`, `tools.sandbox.tools.allow`, and `plugins.entries`
+   - **Config sync**: Updates per-tenant `clawdbot.json` — sets `tools.alsoAllow`, `tools.sandbox.tools.allow`, `plugins.entries`
 3. Logs results
 
 Manual sync endpoint: `POST /api/library/sync/:slug`
@@ -558,6 +635,48 @@ This ensures template updates propagate to all tenants on deploy. It does NOT mo
 ### Keeping sandbox defaults in sync
 
 `SANDBOX_DEFAULT_TOOL_ALLOW` in `platform/src/employees/templates.ts` is a copy of `DEFAULT_TOOL_ALLOW` from `clawdbot/src/agents/sandbox/constants.ts`. If clawdbot adds or removes tools from the default sandbox allowlist, you must update the platform copy too. Look for the comment: "Must stay in sync with clawdbot/src/agents/sandbox/constants.ts".
+
+---
+
+## Content Calendar (reference architecture)
+
+The content calendar is a reference implementation for the pattern: **agent writes to platform DB via YAML tool, frontend reads via API**.
+
+### Data flow
+
+```
+LLM calls save_post tool
+  ↓
+api-tools plugin executes YAML definition
+  ↓
+HTTP POST to Supabase PostgREST → posts table
+  ↓
+Frontend calls GET /api/posts?month=2026-02 → reads from same table via Drizzle
+  ↓
+Calendar UI renders posts
+```
+
+### Components
+
+| Layer | File | Purpose |
+|-------|------|---------|
+| DB | `platform/src/db/schema.ts` → `posts` | Table definition (Drizzle) |
+| API | `platform/src/server/routes/posts.ts` | CRUD for frontend (list, create, update, delete) |
+| Tool | `agents/somi/api-tools/save_post.yaml` | YAML tool for LLM to write posts |
+| Skill | `agents/somi/skills/schedule-post/SKILL.md` | Teaches LLM when/how to call save_post |
+| Frontend | `platform/web/src/components/workspace/somi/` | Calendar UI components |
+
+### Reusing this pattern for new features
+
+To add a new agent→DB feature (e.g., task tracking, lead management):
+
+1. Add a table to `platform/src/db/schema.ts`
+2. Run the migration (see LOCAL.md "Database migrations")
+3. Create API routes in `platform/src/server/routes/`
+4. Create a YAML tool in `agents/{slug}/api-tools/` using the Supabase pattern
+5. Add the tool to `requiredTools.alsoAllow` in `templates.ts`
+6. Create a skill to teach the LLM how to use the tool
+7. Wire the frontend to the API
 
 ---
 
@@ -588,6 +707,40 @@ curl -s "http://127.0.0.1:18789/v1/chat/completions" \
 - `X-Tenant-ID` — tenant UUID (not optional for multi-tenant)
 - `X-OpenClaw-Agent-ID` — agent slug (e.g., `somi`). NOT `X-Agent-ID`.
 - `Authorization: Bearer {token}` — from tenant's `clawdbot.json` → `gateway.auth.token`
+
+### YAML tool loaded by plugin but agent says it doesn't have it
+
+**Symptom:** Gateway logs show `api-tools: loaded 1 tool(s)` but your new YAML tool is missing. The agent responds as if the tool doesn't exist.
+
+**Root cause: `agentDir` path mismatch.** The `agentDir` in tenant `clawdbot.json` can become stale if `TENANT_DATA_DIR` changed since the agent was first installed. The sync system copies files to the CURRENT `TENANT_DATA_DIR`, but the gateway reads api-tools from the `agentDir` path stored in `clawdbot.json` — which may point to the OLD location.
+
+**How it happens:**
+1. Agent installed when platform ran with one `TENANT_DATA_DIR` (e.g., `./data/tenants` → `platform/data/tenants/`)
+2. PM2 ecosystem config overrides `TENANT_DATA_DIR` to a different path (e.g., `~/data/tenants/`)
+3. Sync copies new YAML tools to `~/data/tenants/.../api-tools/` (correct)
+4. But `agentDir` in `clawdbot.json` still points to `platform/data/tenants/.../` (stale)
+5. Gateway looks for api-tools at the stale path — only finds the old tools
+
+**Fix (now automatic):** `syncAgentConfigForAllTenants()` in `sync.ts` corrects `agentDir` and `workspace` paths on every sync. Just restart platform + gateway:
+```bash
+pm2 restart platform && sleep 5 && pm2 restart gateway
+```
+
+**Verify:**
+```bash
+# Check agentDir points to current TENANT_DATA_DIR
+cat ~/data/tenants/{tenant-id}/clawdbot.json | python3 -c "
+import json,sys; c=json.load(sys.stdin)
+for a in c.get('agents',{}).get('list',[]):
+    print(a.get('id'), '->', a.get('agentDir'))
+"
+
+# Check gateway loaded all tools
+pm2 logs gateway --lines 20 --nostream | grep "api-tools.*loaded"
+# Should show: api-tools: loaded N tool(s) for agent {slug}: tool1, tool2, ...
+```
+
+**Prevention:** Never manually set `agentDir` in tenant configs. Let the installer and sync system manage it. If you change `TENANT_DATA_DIR`, restart the platform so sync fixes all paths automatically.
 
 ### Gateway log warnings
 
@@ -711,7 +864,11 @@ console.log(tools.map(t => t.name))  // Should include your plugin tool
     plugins: ['image-gen', 'api-tools'],
   },
   ```
+- [ ] If tool writes to Supabase, add the table to `platform/src/db/schema.ts` and run migration (see "Database migrations" in LOCAL.md)
+- [ ] If tool writes to a platform table, use `tenant_id: "{{env.TENANT_ID}}"` and hardcode `agent_slug` (see "Agent slug in YAML tools" above)
+- [ ] Optionally create a companion skill in `agents/{slug}/skills/{skill-name}/SKILL.md` with `command-dispatch: tool` metadata
 - [ ] Restart: `pm2 restart platform && pm2 restart gateway`
-  - Platform sync copies YAML to all tenants and updates `clawdbot.json` (requires DB to be up)
+  - Platform sync copies YAML to all tenants, updates `clawdbot.json` tools + env (requires DB to be up)
   - Gateway reload picks up the new tool definition
 - [ ] Verify: check tenant's `agents/{slug}/api-tools/` has the new YAML
+- [ ] Verify: if using Supabase, test the PostgREST endpoint directly with `curl` first

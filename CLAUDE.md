@@ -6,6 +6,7 @@ Workforce Platform (workforce.dooza.ai) is a multi-tenant SaaS platform where bu
 ## Documentation
 - **Local development**: See `docs/LOCAL.md`
 - **Production deployment**: See `docs/DEPLOY.md`
+- **Agent development**: See `docs/AGENTS.md` (tool policies, YAML tools, Supabase patterns, sync system)
 
 ## Architecture
 

@@ -1,4 +1,5 @@
 import { lazy, type ComponentType } from 'react'
+import type { Employee } from '../../lib/api'
 
 // Lazy load workspaces for code splitting
 const SomiWorkspace = lazy(() =>
@@ -8,7 +9,7 @@ const GenericWorkspace = lazy(() =>
   import('./generic/GenericWorkspace').then((m) => ({ default: m.GenericWorkspace }))
 )
 
-type WorkspaceComponent = ComponentType
+type WorkspaceComponent = ComponentType<{ employee: Employee | null }>
 
 const registry: Record<string, WorkspaceComponent> = {
   somi: SomiWorkspace,

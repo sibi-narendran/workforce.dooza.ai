@@ -31,7 +31,7 @@ const columns = [
   }),
 ]
 
-export function GenericWorkspace() {
+export function GenericWorkspace({ employee: _employee }: { employee: unknown }) {
   const [data, setData] = useState<WorkspaceRow[]>([
     { id: '1', name: 'Task 1', status: 'active', createdAt: new Date() },
     { id: '2', name: 'Task 2', status: 'pending', createdAt: new Date(Date.now() - 86400000) },

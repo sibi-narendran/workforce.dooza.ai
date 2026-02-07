@@ -79,6 +79,22 @@ export const jobs = pgTable('jobs', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 })
 
+// Scheduled Posts (content calendar)
+export const posts = pgTable('posts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id).notNull(),
+  agentSlug: text('agent_slug'),               // e.g. 'somi' — for UI filtering, no FK
+  platform: text('platform').notNull(),       // youtube | instagram | facebook | linkedin | tiktok
+  title: text('title'),                        // short label for calendar
+  content: text('content').notNull(),          // caption / post body
+  imageUrl: text('image_url'),                 // optional Supabase media URL
+  scheduledDate: timestamp('scheduled_date', { withTimezone: true }).notNull(),
+  status: text('status').default('draft'),     // draft | scheduled | published | failed
+  metadata: jsonb('metadata'),                 // future: hashtags, video URL, carousel
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+})
+
 // Conversation metadata (transcripts stored in clawdbot files)
 export const conversations = pgTable('conversations', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -143,6 +159,8 @@ export type Employee = typeof employees.$inferSelect
 export type NewEmployee = typeof employees.$inferInsert
 export type Job = typeof jobs.$inferSelect
 export type NewJob = typeof jobs.$inferInsert
+export type Post = typeof posts.$inferSelect
+export type NewPost = typeof posts.$inferInsert
 export type Conversation = typeof conversations.$inferSelect
 export type NewConversation = typeof conversations.$inferInsert
 export type IntegrationProvider = typeof integrationProviders.$inferSelect

@@ -30,12 +30,21 @@ If the user doesn't specify a platform, **default to LinkedIn** and offer to ada
 - **Line breaks:** Use single-line sentences with blank lines between for readability
 - **No emojis overload** — 1–2 per post max, used intentionally
 
-### X (Twitter)
-- **Character limit:** 280
-- **Tone:** Punchy, conversational, opinionated
-- **Hook:** Entire tweet IS the hook — every word counts
-- **Hashtags:** 1–2 woven into the tweet, not stacked at the end
-- **Threads:** For longer content, break into a thread (first tweet must stand alone)
+### YouTube
+- **Title:** Under 100 chars, front-load keywords, emotionally compelling
+- **Description:** First 2 lines visible before "show more" — include hook + key links
+- **Tone:** Educational or entertaining, personality-driven
+- **Hashtags:** 3–5 in description, relevant to topic
+- **Timestamps:** Include chapter markers for longer content
+- **CTA:** Subscribe, like, comment — weave naturally into the script
+
+### TikTok
+- **Caption limit:** 2,200
+- **Tone:** Casual, trend-aware, authentic, fast-paced
+- **Hook:** First 1–2 seconds must grab — text overlay or bold statement
+- **Hashtags:** 3–5 trending + niche tags
+- **Sounds:** Reference trending audio when relevant
+- **CTA:** Follow for more, comment your take, duet this
 
 ### Instagram
 - **Character limit:** 2,200 (caption)
@@ -73,11 +82,29 @@ Every post follows this framework — adapt per platform:
 #hashtag1 #hashtag2 #hashtag3
 ```
 
-### X Template
+### YouTube Template
 ```
-[Entire message in ≤280 chars — hook IS the post]
+Title: [Keyword-rich, compelling title ≤100 chars]
 
-Optional: #tag1 #tag2
+Description:
+[Hook — what the viewer will learn/see]
+
+[Key points / timestamps]
+
+[Links, social handles, CTA]
+
+#hashtag1 #hashtag2 #hashtag3
+```
+
+### TikTok Template
+```
+[Hook caption — punchy, trend-aware]
+
+[Value or entertainment angle — 1–2 sentences]
+
+[CTA — follow, comment, duet]
+
+#trending #niche #hashtag
 ```
 
 ### Instagram Template
@@ -111,6 +138,7 @@ Always present the draft like this:
 Want me to:
 - ✏️ Edit anything?
 - 🔄 Adapt for [other platforms]?
+- 📅 Save to calendar?
 - 📤 Publish it?
 ```
 
@@ -119,9 +147,12 @@ Want me to:
 When adapting a post across platforms:
 - Don't just copy-paste — **rewrite for each platform's native style**
 - LinkedIn version can be longer and more detailed
-- X version should be the sharpest, most quotable line from the content
+- YouTube version should be educational/value-driven with timestamps
 - Instagram version should be story-driven with a visual angle
 - Facebook version should invite conversation
+- TikTok version should be trend-aware and fast-paced
+
+After the user approves a draft, offer to save it to the content calendar via `save_post`.
 
 ## Brand Voice
 
@@ -167,6 +198,7 @@ What's one hiring practice you think AI should fix first?
 
 Want me to:
 - ✏️ Edit anything?
-- 🔄 Adapt for X or Instagram?
+- 🔄 Adapt for YouTube, Instagram, or TikTok?
+- 📅 Save to calendar?
 - 📤 Publish it?
 ```

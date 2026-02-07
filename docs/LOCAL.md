@@ -85,10 +85,45 @@ Override with `TENANT_DATA_DIR` env var.
 
 ## Database
 
+### Schema changes
+
+Edit `platform/src/db/schema.ts` to add or modify tables.
+
+### Migrations
+
+**`drizzle-kit push` is broken** in v0.30.6 (crashes on Supabase check constraints). Use this workaround:
+
+```bash
+# 1. Generate the migration SQL
+cd platform && npx drizzle-kit generate
+
+# 2. Look at the generated SQL in src/db/migrations/
+#    Find only the statements for YOUR new table (skip tables that already exist)
+
+# 3. Run the SQL directly via tsx (from the platform/ directory)
+source ../.env && npx tsx -e "
+import postgres from 'postgres';
+async function main() {
+  const client = postgres(process.env.DATABASE_URL!);
+  await client.unsafe(\`
+    CREATE TABLE IF NOT EXISTS \"your_table\" (
+      -- paste your SQL here
+    );
+  \`);
+  console.log('Done');
+  await client.end();
+}
+main();
+"
+```
+
+**Important:** The `.env` file is at the repo root, not in `platform/`. Always `source ../.env` from the platform directory to get `DATABASE_URL`.
+
+### Drizzle Studio
+
 ```bash
 cd platform
-pnpm db:push       # Push schema to Supabase
-pnpm db:studio     # Open Drizzle Studio
+source ../.env && pnpm db:studio     # Open Drizzle Studio
 ```
 
 ## Troubleshooting

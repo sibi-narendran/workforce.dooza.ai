@@ -1,10 +1,20 @@
+export type Platform = 'youtube' | 'instagram' | 'facebook' | 'linkedin' | 'tiktok'
+
+export type PostStatus = 'draft' | 'scheduled' | 'published' | 'failed'
+
 export interface ScheduledPost {
   id: string
-  title: string
+  tenantId: string
+  agentSlug: string | null
+  platform: Platform
+  title: string | null
   content: string
-  platform: 'twitter' | 'instagram' | 'linkedin' | 'facebook'
-  scheduledDate: Date
-  status: 'draft' | 'scheduled' | 'published'
+  imageUrl: string | null
+  scheduledDate: string // ISO from API
+  status: PostStatus
+  metadata: Record<string, unknown> | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface CalendarDay {

@@ -1,22 +1,24 @@
-import type { ScheduledPost } from './somi.types'
+import type { ScheduledPost, Platform } from './somi.types'
 
 interface SomiPostCardProps {
   post: ScheduledPost
   onClick?: () => void
 }
 
-const platformIcons: Record<ScheduledPost['platform'], string> = {
-  twitter: 'X',
+const platformIcons: Record<Platform, string> = {
+  youtube: 'YT',
   instagram: 'IG',
   linkedin: 'in',
   facebook: 'f',
+  tiktok: 'TT',
 }
 
-const platformColors: Record<ScheduledPost['platform'], string> = {
-  twitter: '#1DA1F2',
+const platformColors: Record<Platform, string> = {
+  youtube: '#FF0000',
   instagram: '#E4405F',
   linkedin: '#0A66C2',
   facebook: '#1877F2',
+  tiktok: '#000000',
 }
 
 export function SomiPostCard({ post, onClick }: SomiPostCardProps) {
@@ -35,7 +37,7 @@ export function SomiPostCard({ post, onClick }: SomiPostCardProps) {
         {platformIcons[post.platform]}
       </div>
       <div className="somi-post-card__content">
-        <span className="somi-post-card__title">{post.title}</span>
+        <span className="somi-post-card__title">{post.title || post.content.slice(0, 40)}</span>
       </div>
     </div>
   )

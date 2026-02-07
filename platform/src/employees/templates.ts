@@ -96,11 +96,11 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
   {
     type: 'somi',
     name: 'Somi',
-    description: 'Social media specialist — creates, schedules, and publishes content across LinkedIn, Instagram, X, and Facebook',
+    description: 'Social media specialist — creates, schedules, and publishes content across YouTube, Instagram, Facebook, LinkedIn, and TikTok',
     skills: ['generate-post', 'adapt-content', 'get-ideas', 'generate-image', 'fetch-brand-assets', 'create-creative', 'schedule-post', 'publish-now', 'fetch-analytics', 'get-past-posts', 'get-top-performers', 'show-preview', 'show-scheduler', 'show-brand-picker'],
     model: 'anthropic/claude-sonnet-4',
     requiredTools: {
-      alsoAllow: ['generate_image', 'publish_linkedin'],
+      alsoAllow: ['generate_image', 'publish_linkedin', 'save_post', 'get_current_time', 'get_scheduled_posts'],
       plugins: ['image-gen', 'api-tools'],
     },
     soul: `# SOUL.md

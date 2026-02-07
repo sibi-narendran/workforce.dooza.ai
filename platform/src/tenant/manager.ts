@@ -106,7 +106,7 @@ interface ClawdbotConfig {
       default?: boolean
       workspace: string   // clawdbot uses this for resolveAgentWorkspaceDir()
       agentDir: string    // clawdbot uses this for resolveAgentDir() (sessions/memory)
-      tools?: { alsoAllow?: string[] }
+      tools?: Record<string, unknown>
     }>
   }
   // Internal hooks configuration
@@ -129,6 +129,8 @@ interface ClawdbotConfig {
     }
     entries?: Record<string, { enabled: boolean }>
   }
+  // Environment variables passed to YAML tools (api-tools plugin)
+  env?: Record<string, string>
 }
 
 /**
@@ -476,7 +478,7 @@ export class TenantManager {
       id: string
       agentDir: string
       isDefault?: boolean
-      tools?: { alsoAllow?: string[] }
+      tools?: Record<string, unknown>
     }
   ): Promise<void> {
     const config = await this.loadClawdbotConfig(tenantId)
