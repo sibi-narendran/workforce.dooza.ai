@@ -118,6 +118,8 @@ export const userIntegrations = pgTable('user_integrations', {
   providerId: uuid('provider_id').references(() => integrationProviders.id).notNull(),
   composioEntityId: text('composio_entity_id').notNull(), // Composio entity (workforce-{tenantId})
   composioConnectionId: text('composio_connection_id').notNull(), // The connection
+  accountLabel: text('account_label'), // Display name for connected account (e.g., page name)
+  metadata: jsonb('metadata'), // Platform-specific data (e.g., Facebook pages list + selectedPageId)
   status: text('status').default('connected'), // 'connected', 'expired', 'revoked', 'pending'
   connectedAt: timestamp('connected_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

@@ -366,11 +366,20 @@ export const integrationsApi = {
   connect: (token: string, providerSlug: string) =>
     api<{ redirectUrl: string }>(`/integrations/${providerSlug}/connect`, { method: 'POST', token }),
 
+
   disconnect: (token: string, connectionId: string) =>
     api(`/integrations/${connectionId}`, { method: 'DELETE', token }),
 
   checkStatus: (token: string, connectionId: string) =>
     api<{ status: string }>(`/integrations/${connectionId}/status`, { token }),
+
+  listPages: (token: string, connectionId: string) =>
+    api<{ pages: { id: string; name: string }[]; selectedPageId: string | null }>(
+      `/integrations/${connectionId}/pages`, { token }),
+
+  selectPage: (token: string, connectionId: string, pageId: string) =>
+    api<{ success: boolean }>(`/integrations/${connectionId}/select-page`,
+      { method: 'PATCH', token, body: { pageId } }),
 }
 
 // Routines (Clawdbot cron)
@@ -552,6 +561,7 @@ export interface UserConnection {
   providerSlug: string
   providerName: string
   providerIcon: string | null
+  accountLabel: string | null
   status: 'connected' | 'pending' | 'expired' | 'revoked'
   connectedAt: string
 }

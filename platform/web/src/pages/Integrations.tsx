@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { integrationsApi, type IntegrationProvider, type UserConnection } from '../lib/api'
 import { useAuthStore } from '../lib/store'
@@ -12,7 +12,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: 'Other',
 }
 
-const CATEGORY_ORDER = ['productivity', 'communication', 'dev', 'storage', 'social', 'other']
+const CATEGORY_ORDER = ['social', 'productivity', 'communication', 'dev', 'storage', 'other']
 
 export function Integrations() {
   const { session } = useAuthStore()
@@ -24,28 +24,9 @@ export function Integrations() {
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Handle OAuth callback
-  useEffect(() => {
-    const successParam = searchParams.get('success')
-    const errorParam = searchParams.get('error')
-    const appParam = searchParams.get('app')
-
-    if (successParam === 'true') {
-      setSuccess(appParam ? `Successfully connected to ${appParam}!` : 'Successfully connected!')
-      setSearchParams({})
-    } else if (errorParam) {
-      const errorMessages: Record<string, string> = {
-        missing_connection_id: 'Connection failed: missing connection ID',
-        connection_not_found: 'Connection failed: could not find pending connection',
-        callback_failed: 'Connection failed: callback error',
-      }
-      setError(errorMessages[errorParam] || 'Connection failed')
-      setSearchParams({})
-    }
-  }, [searchParams, setSearchParams])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const providersRes = await integrationsApi.listProviders()
       setProviders(providersRes.providers)
@@ -59,11 +40,92 @@ export function Integrations() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [session?.accessToken])
+
+  // Handle OAuth callback in popup window
+  // Composio redirects to /integrations?status=success&connectedAccountId=...
+  // The popup just notifies the parent and closes — backend waitForConnection() handles DB.
+  useEffect(() => {
+    const statusParam = searchParams.get('status')
+    const errorParam = searchParams.get('error')
+    const connectedAccountId = searchParams.get('connectedAccountId')
+
+    // If we're in a popup, notify parent and close
+    if (window.opener && (statusParam || connectedAccountId)) {
+      if (statusParam === 'failed' || errorParam) {
+        window.opener.postMessage({ type: 'integration-error', error: errorParam || 'Connection failed' }, '*')
+      } else {
+        window.opener.postMessage({ type: 'integration-connected' }, '*')
+      }
+      window.close()
+      return
+    }
+
+    // If not in popup but has params, clean them up
+    if (statusParam || connectedAccountId || errorParam) {
+      if (errorParam || statusParam === 'failed') {
+        setError(errorParam || 'Connection failed')
+      }
+      setSearchParams({})
+    }
+  }, [searchParams, setSearchParams])
+
+  // Listen for messages from OAuth popup
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (!e.data?.type?.startsWith('integration-')) return
+      if (e.data.type === 'integration-connected') {
+        // Backend waitForConnection() will update DB. Poll to pick up the change.
+        setSuccess('Connection initiated — verifying...')
+        startPolling()
+      } else if (e.data.type === 'integration-error') {
+        setError(e.data.error || 'Connection failed')
+      }
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
+
+  // Poll connections every 3s after OAuth to detect when backend confirms
+  const startPolling = useCallback(() => {
+    if (pollRef.current) return
+    let attempts = 0
+    const prevCount = connections.filter(c => c.status === 'connected').length
+
+    pollRef.current = setInterval(async () => {
+      attempts++
+      if (!session?.accessToken || attempts > 40) { // 2 min max
+        if (pollRef.current) clearInterval(pollRef.current)
+        pollRef.current = null
+        if (attempts > 40) setError('Connection timed out. Please try again.')
+        return
+      }
+      try {
+        const res = await integrationsApi.listConnections(session.accessToken)
+        const newCount = res.connections.filter((c: UserConnection) => c.status === 'connected').length
+        if (newCount > prevCount) {
+          // New connection detected
+          setConnections(res.connections)
+          setSuccess('Successfully connected!')
+          if (pollRef.current) clearInterval(pollRef.current)
+          pollRef.current = null
+          // Refresh full data
+          loadData()
+        }
+      } catch { /* ignore poll errors */ }
+    }, 3000)
+  }, [session?.accessToken, connections, loadData])
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     loadData()
-  }, [session?.accessToken])
+  }, [loadData])
 
   const handleConnect = async (provider: IntegrationProvider) => {
     if (!session?.accessToken) {
@@ -77,8 +139,11 @@ export function Integrations() {
 
     try {
       const res = await integrationsApi.connect(session.accessToken, provider.slug)
-      // Open OAuth in new window/tab
-      window.open(res.redirectUrl, '_blank', 'width=600,height=700')
+      // Open OAuth popup centered on screen
+      const w = 600, h = 700
+      const left = Math.round(window.screenX + (window.outerWidth - w) / 2)
+      const top = Math.round(window.screenY + (window.outerHeight - h) / 2)
+      window.open(res.redirectUrl, '_blank', `width=${w},height=${h},left=${left},top=${top}`)
     } catch (err: any) {
       setError(err.message || 'Failed to initiate connection')
     } finally {
@@ -96,7 +161,6 @@ export function Integrations() {
     try {
       await integrationsApi.disconnect(session.accessToken, connection.id)
       setSuccess(`Disconnected from ${connection.providerName}`)
-      // Refresh connections
       const connectionsRes = await integrationsApi.listConnections(session.accessToken)
       setConnections(connectionsRes.connections)
     } catch (err: any) {
@@ -172,7 +236,7 @@ export function Integrations() {
       )}
 
       {/* Connected integrations summary */}
-      {connections.length > 0 && (
+      {connections.filter((c) => c.status === 'connected').length > 0 && (
         <div
           style={{
             padding: 16,
@@ -183,10 +247,10 @@ export function Integrations() {
           }}
         >
           <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-strong)', marginBottom: 8 }}>
-            Connected ({connections.length})
+            Connected ({connections.filter((c) => c.status === 'connected').length})
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {connections.map((conn) => (
+            {connections.filter((c) => c.status === 'connected').map((conn) => (
               <div
                 key={conn.id}
                 style={{
@@ -208,6 +272,11 @@ export function Integrations() {
                   />
                 )}
                 {conn.providerName}
+                {conn.accountLabel && (
+                  <span style={{ color: 'var(--muted)', marginLeft: 4 }}>
+                    ({conn.accountLabel})
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -276,7 +345,37 @@ function IntegrationCard({
   disconnecting: boolean
   isLoggedIn: boolean
 }) {
+  const { session } = useAuthStore()
   const isConnected = !!connection
+  const hasPageSelector = provider.slug === 'facebook' || provider.slug === 'linkedin'
+
+  const [pages, setPages] = useState<{ id: string; name: string }[]>([])
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
+  const [loadingPages, setLoadingPages] = useState(false)
+
+  // Fetch pages when Facebook/LinkedIn is connected
+  useEffect(() => {
+    if (!isConnected || !hasPageSelector || !session?.accessToken || !connection) return
+    setLoadingPages(true)
+    integrationsApi.listPages(session.accessToken, connection.id)
+      .then((res) => {
+        setPages(res.pages)
+        setSelectedPageId(res.selectedPageId)
+      })
+      .catch(() => {})
+      .finally(() => setLoadingPages(false))
+  }, [isConnected, hasPageSelector, session?.accessToken, connection?.id])
+
+  const handlePageChange = async (pageId: string) => {
+    if (!session?.accessToken || !connection) return
+    const prevPageId = selectedPageId
+    setSelectedPageId(pageId)
+    try {
+      await integrationsApi.selectPage(session.accessToken, connection.id, pageId)
+    } catch {
+      setSelectedPageId(prevPageId)
+    }
+  }
 
   return (
     <div
@@ -340,7 +439,7 @@ function IntegrationCard({
               }}
             >
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
-              Connected
+              Connected{connection?.accountLabel ? ` · ${connection.accountLabel}` : ''}
             </div>
           )}
         </div>
@@ -357,6 +456,44 @@ function IntegrationCard({
         >
           {provider.description}
         </p>
+      )}
+
+      {/* Page / profile selector (Facebook pages, LinkedIn profiles/orgs) */}
+      {isConnected && hasPageSelector && !loadingPages && pages.length > 0 && (
+        <div style={{ fontSize: 12 }}>
+          <label style={{ color: 'var(--muted)', display: 'block', marginBottom: 4 }}>
+            Publishing as:
+          </label>
+          {pages.length === 1 ? (
+            <div style={{
+              padding: '6px 8px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              color: 'var(--text-strong)',
+            }}>
+              {pages[0].name}
+            </div>
+          ) : (
+            <select
+              value={selectedPageId || ''}
+              onChange={(e) => handlePageChange(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '6px 8px',
+                fontSize: 12,
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)',
+                background: 'var(--surface)',
+                color: 'var(--text-strong)',
+              }}
+            >
+              {pages.map((page) => (
+                <option key={page.id} value={page.id}>{page.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
       )}
 
       <div

@@ -9,6 +9,7 @@ interface PostData {
   content: string
   title?: string | null
   imageUrl?: string | null
+  pageId?: string | null
 }
 
 interface PublishStep {
@@ -32,7 +33,9 @@ const SOCIAL_PLATFORMS: Record<string, SocialPlatformConfig> = {
       {
         action: 'LINKEDIN_CREATE_LINKED_IN_POST',
         buildParams: (p) => ({
-          text: p.content.slice(0, 3000),
+          // author URN (personal or organization) — required by Composio
+          ...(p.pageId ? { author: p.pageId } : {}),
+          commentary: p.content.slice(0, 3000),
           visibility: 'PUBLIC',
           ...(p.imageUrl ? { media_url: p.imageUrl } : {}),
         }),
@@ -48,6 +51,7 @@ const SOCIAL_PLATFORMS: Record<string, SocialPlatformConfig> = {
       {
         action: 'FACEBOOK_CREATE_POST',
         buildParams: (p) => ({
+          ...(p.pageId ? { page_id: p.pageId } : {}),
           message: p.content,
           ...(p.imageUrl ? { url: p.imageUrl } : {}),
         }),
@@ -79,10 +83,28 @@ const SOCIAL_PLATFORMS: Record<string, SocialPlatformConfig> = {
     requiresImage: true,
     validate: (p) => (!p.imageUrl ? 'Instagram requires an image' : null),
   },
+  tiktok: {
+    providerSlug: 'tiktok',
+    steps: [
+      {
+        action: 'TIKTOK_POST_PHOTO',
+        buildParams: (p) => ({
+          photo_images: [p.imageUrl],
+          photo_cover_index: 0,
+          description: p.content.slice(0, 2200),
+          privacy_level: 'SELF_ONLY',
+          post_mode: 'DIRECT_POST',
+        }),
+      },
+    ],
+    maxContentLength: 2200,
+    requiresImage: true,
+    validate: (p) => (!p.imageUrl ? 'TikTok photo posts require an image' : null),
+  },
 }
 
-// Platforms excluded from v1 (video-only)
-const UNSUPPORTED_PLATFORMS = new Set(['youtube', 'tiktok'])
+// Platforms excluded for now (video upload requires local file path)
+const UNSUPPORTED_PLATFORMS = new Set(['youtube'])
 
 export function getProviderSlugForPlatform(platform: string): string | null {
   return SOCIAL_PLATFORMS[platform]?.providerSlug ?? null

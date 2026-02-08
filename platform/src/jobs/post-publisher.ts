@@ -5,10 +5,10 @@
  * Publishes via Composio SDK directly (no AI agent needed).
  */
 import { db } from '../db/client.js'
-import { posts } from '../db/schema.js'
+import { posts, userIntegrations, integrationProviders } from '../db/schema.js'
 import { eq, and, lte, sql } from 'drizzle-orm'
 import { executeTool } from '../integrations/composio-client.js'
-import { getPlatformConfig } from '../integrations/social-platforms.js'
+import { getPlatformConfig, getProviderSlugForPlatform } from '../integrations/social-platforms.js'
 
 class PostPublisher {
   private intervalId: ReturnType<typeof setInterval> | null = null
@@ -75,10 +75,31 @@ class PostPublisher {
     console.log(`[PostPublisher] Publishing post ${post.id} to ${post.platform}`)
 
     try {
+      // Look up selectedPageId from integration metadata (Facebook page_id, LinkedIn author URN)
+      let pageId: string | null = null
+      const providerSlug = getProviderSlugForPlatform(post.platform)
+      if (providerSlug === 'facebook' || providerSlug === 'linkedin') {
+        const [integration] = await db
+          .select({ metadata: userIntegrations.metadata })
+          .from(userIntegrations)
+          .innerJoin(integrationProviders, eq(userIntegrations.providerId, integrationProviders.id))
+          .where(
+            and(
+              eq(userIntegrations.tenantId, post.tenantId),
+              eq(integrationProviders.slug, providerSlug),
+              eq(userIntegrations.status, 'connected')
+            )
+          )
+          .limit(1)
+        const meta = integration?.metadata as Record<string, unknown> | null
+        pageId = (meta?.selectedPageId as string) || null
+      }
+
       const postData = {
         content: post.content,
         title: post.title,
         imageUrl: post.imageUrl,
+        pageId,
       }
 
       // Execute steps sequentially, passing each result to the next
