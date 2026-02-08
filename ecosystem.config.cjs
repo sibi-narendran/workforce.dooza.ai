@@ -58,6 +58,7 @@ module.exports = {
         NODE_ENV: 'production',
         NODE_OPTIONS: '--max-old-space-size=768',
         TENANT_DATA_DIR: TENANT_DATA_DIR,
+        OPENCLAW_GATEWAY_TOKEN: platformEnv.CLAWDBOT_HOOK_TOKEN,
         OPENROUTER_API_KEY: platformEnv.OPENROUTER_API_KEY,
         DEFAULT_MODEL: platformEnv.DEFAULT_MODEL || 'google/gemini-2.0-flash-001',
         SUPABASE_URL: platformEnv.SUPABASE_URL,
