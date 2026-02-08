@@ -54,6 +54,7 @@ module.exports = {
       cwd: path.join(baseDir, 'clawdbot'),
       script: 'node',
       args: 'openclaw.mjs gateway run --port 18789 --bind loopback',
+      node_args: '--max-old-space-size=768',
       env: {
         NODE_ENV: 'production',
         TENANT_DATA_DIR: TENANT_DATA_DIR,
@@ -66,7 +67,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: '1G',
+      max_memory_restart: '900M',
       // Logging
       error_file: path.join(logsDir, 'gateway-error.log'),
       out_file: path.join(logsDir, 'gateway-out.log'),
@@ -77,7 +78,7 @@ module.exports = {
       name: 'platform',
       cwd: path.join(baseDir, 'platform'),
       script: 'node',
-      args: 'dist/index.js',
+      args: '--max-old-space-size=512 dist/index.js',
       env: {
         ...platformEnv,
         NODE_ENV: 'production',
