@@ -53,7 +53,7 @@ module.exports = {
       name: 'gateway',
       cwd: path.join(baseDir, 'clawdbot'),
       script: 'node',
-      args: 'openclaw.mjs gateway run --port 18789 --bind loopback --allow-unconfigured',
+      args: 'dist/index.js gateway --allow-unconfigured --port 18789 --bind loopback',
       env: {
         NODE_ENV: 'production',
         NODE_OPTIONS: '--max-old-space-size=768',
