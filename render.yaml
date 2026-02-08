@@ -39,4 +39,4 @@ services:
       name: tenant-data
       mountPath: /data/tenants
       sizeGB: 1
-    healthCheckPath: /api/health
+    healthCheckPath: /health

@@ -23,7 +23,10 @@ function parseEnvFile(envPath) {
 }
 
 const baseDir = __dirname
-const platformEnv = parseEnvFile(path.join(baseDir, 'platform', '.env'))
+const fileEnv = parseEnvFile(path.join(baseDir, 'platform', '.env'))
+// Merge: .env file values override process.env (for local dev),
+// but process.env provides values on Render/production (no .env file)
+const platformEnv = { ...process.env, ...fileEnv }
 
 // TENANT_DATA_DIR: Use env, or default based on platform
 // Production (Linux): /data/tenants
