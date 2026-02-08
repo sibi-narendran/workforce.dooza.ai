@@ -54,9 +54,9 @@ module.exports = {
       cwd: path.join(baseDir, 'clawdbot'),
       script: 'node',
       args: 'openclaw.mjs gateway run --port 18789 --bind loopback',
-      node_args: '--max-old-space-size=768',
       env: {
         NODE_ENV: 'production',
+        NODE_OPTIONS: '--max-old-space-size=768',
         TENANT_DATA_DIR: TENANT_DATA_DIR,
         OPENROUTER_API_KEY: platformEnv.OPENROUTER_API_KEY,
         DEFAULT_MODEL: platformEnv.DEFAULT_MODEL || 'google/gemini-2.0-flash-001',
@@ -78,10 +78,11 @@ module.exports = {
       name: 'platform',
       cwd: path.join(baseDir, 'platform'),
       script: 'node',
-      args: '--max-old-space-size=512 dist/index.js',
+      args: 'dist/index.js',
       env: {
         ...platformEnv,
         NODE_ENV: 'production',
+        NODE_OPTIONS: '--max-old-space-size=512',
         PORT: platformEnv.PORT || 3000,
         TENANT_DATA_DIR: TENANT_DATA_DIR,
       },
