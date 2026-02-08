@@ -3,6 +3,7 @@ import { app } from './server/index.js'
 import { validateEnv, env } from './lib/env.js'
 import { stopAllGateways } from './tenant/gateway-manager.js'
 import { syncAllAgentTemplates } from './employees/sync.js'
+import { postPublisher } from './jobs/post-publisher.js'
 
 // Validate environment on startup
 try {
@@ -38,6 +39,9 @@ syncAllAgentTemplates().catch((err) => {
   console.warn('[Platform] Template sync failed:', err.message)
 })
 
+// Start background post publisher
+postPublisher.start()
+
 // Start HTTP server
 serve(
   {
@@ -54,6 +58,9 @@ serve(
 // Graceful shutdown
 async function shutdown(signal: string) {
   console.log(`\n[Platform] Received ${signal}, shutting down...`)
+
+  // Stop background jobs
+  postPublisher.stop()
 
   // Cleanup (no-op in multi-tenant mode - gateway managed externally)
   stopAllGateways()

@@ -409,6 +409,11 @@ export const postsApi = {
 
   delete: (token: string, id: string) =>
     api(`/posts/${id}`, { method: 'DELETE', token }),
+
+  approve: (token: string, id: string) =>
+    api<{ post?: Post; needsConnection?: boolean; providerSlug?: string; platform?: string; error?: string }>(
+      `/posts/${id}/approve`, { method: 'POST', token }
+    ),
 }
 
 // Types

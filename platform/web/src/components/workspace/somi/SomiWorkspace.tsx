@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { Employee } from '../../../lib/api'
-import { postsApi } from '../../../lib/api'
+import { postsApi, integrationsApi } from '../../../lib/api'
 import { useAuthStore } from '../../../lib/store'
 import type { ScheduledPost, Platform } from './somi.types'
 import { SomiCalendar } from './SomiCalendar'
@@ -29,6 +29,8 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [startDate, setStartDate] = useState(getToday)
   const [loading, setLoading] = useState(false)
+  const [approving, setApproving] = useState(false)
+  const [connectionPrompt, setConnectionPrompt] = useState<{ platform: string; providerSlug: string } | null>(null)
   const [activeTab, setActiveTab] = useState<StatusTab>('scheduled')
   const session = useAuthStore((s) => s.session)
 
@@ -123,6 +125,41 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
       setSelectedPost(null)
     } catch (err) {
       console.error('Failed to delete post:', err)
+    }
+  }
+
+  const handleApprovePost = async (post: ScheduledPost) => {
+    if (!session?.accessToken) return
+    setApproving(true)
+    try {
+      const result = await postsApi.approve(session.accessToken, post.id)
+      if (result.needsConnection && result.providerSlug && result.platform) {
+        setConnectionPrompt({ platform: result.platform, providerSlug: result.providerSlug })
+      } else if (result.error) {
+        alert(result.error)
+      } else if (result.post) {
+        setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, status: 'scheduled' } : p)))
+        setSelectedPost(null)
+      }
+    } catch (err) {
+      console.error('Failed to approve post:', err)
+      alert(err instanceof Error ? err.message : 'Failed to approve post')
+    } finally {
+      setApproving(false)
+    }
+  }
+
+  const handleConnectPlatform = async () => {
+    if (!session?.accessToken || !connectionPrompt) return
+    try {
+      const { redirectUrl } = await integrationsApi.connect(session.accessToken, connectionPrompt.providerSlug)
+      if (redirectUrl) {
+        window.open(redirectUrl, '_blank', 'noopener')
+      }
+      setConnectionPrompt(null)
+    } catch (err) {
+      console.error('Failed to connect platform:', err)
+      alert(err instanceof Error ? err.message : 'Failed to connect')
     }
   }
 
@@ -284,11 +321,51 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8 }}>
+                {selectedPost.status === 'draft' && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => handleApprovePost(selectedPost)}
+                    disabled={approving}
+                  >
+                    {approving ? 'Approving...' : 'Approve'}
+                  </button>
+                )}
                 <button
                   className="btn btn-danger"
                   onClick={() => handleDeletePost(selectedPost.id)}
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Connection Prompt Modal */}
+      {connectionPrompt && (
+        <div className="somi-modal-overlay" onClick={() => setConnectionPrompt(null)}>
+          <div className="somi-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="somi-modal__header">
+              <h4>Connect {connectionPrompt.platform}</h4>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setConnectionPrompt(null)}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="somi-modal__body">
+              <p style={{ marginBottom: 16 }}>
+                Connect your {connectionPrompt.platform} account to approve and auto-publish posts.
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary" onClick={handleConnectPlatform}>
+                  Connect {connectionPrompt.platform}
+                </button>
+                <button className="btn btn-ghost" onClick={() => setConnectionPrompt(null)}>
+                  Cancel
                 </button>
               </div>
             </div>

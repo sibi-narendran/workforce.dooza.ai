@@ -76,6 +76,9 @@ interface ClawdbotConfig {
       model: {
         primary: string
       }
+      // Web-chat: disable message ID hints and reply tags
+      includeMessageIdHints?: boolean
+      promptMode?: string
       // Multi-tenant security: Sandbox configuration
       sandbox?: {
         // Mode: 'off' | 'all' | 'docker' - use 'all' to enable path validation

@@ -2,8 +2,9 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { zValidator } from '@hono/zod-validator'
 import { db } from '../../db/client.js'
-import { posts } from '../../db/schema.js'
+import { posts, integrationProviders, userIntegrations } from '../../db/schema.js'
 import { eq, and, gte, lt, desc } from 'drizzle-orm'
+import { validatePostForPlatform, getProviderSlugForPlatform } from '../../integrations/social-platforms.js'
 
 const postsRouter = new Hono()
 
@@ -157,6 +158,78 @@ postsRouter.delete('/:id', async (c) => {
   await db.delete(posts).where(eq(posts.id, postId))
 
   return c.json({ success: true, message: 'Post deleted' })
+})
+
+/**
+ * Approve a draft post for publishing
+ * Checks platform validation and Composio connection status
+ */
+postsRouter.post('/:id/approve', async (c) => {
+  const tenantId = c.get('tenantId')
+  const postId = c.req.param('id')
+
+  // Load post
+  const [post] = await db
+    .select()
+    .from(posts)
+    .where(and(eq(posts.id, postId), eq(posts.tenantId, tenantId)))
+    .limit(1)
+
+  if (!post) {
+    return c.json({ error: 'Post not found' }, 404)
+  }
+
+  if (post.status !== 'draft') {
+    return c.json({ error: `Post is already ${post.status}` }, 400)
+  }
+
+  // Validate platform support + post requirements
+  const validationError = validatePostForPlatform(post.platform, post)
+  if (validationError) {
+    return c.json({ error: validationError }, 400)
+  }
+
+  // Look up provider slug for this platform
+  const providerSlug = getProviderSlugForPlatform(post.platform)
+  if (!providerSlug) {
+    return c.json({ error: `No provider configured for ${post.platform}` }, 400)
+  }
+
+  // Check if tenant has a connected integration for this platform
+  const [provider] = await db
+    .select()
+    .from(integrationProviders)
+    .where(eq(integrationProviders.slug, providerSlug))
+    .limit(1)
+
+  if (!provider) {
+    return c.json({ needsConnection: true, providerSlug, platform: post.platform }, 200)
+  }
+
+  const [connection] = await db
+    .select()
+    .from(userIntegrations)
+    .where(
+      and(
+        eq(userIntegrations.tenantId, tenantId),
+        eq(userIntegrations.providerId, provider.id),
+        eq(userIntegrations.status, 'connected')
+      )
+    )
+    .limit(1)
+
+  if (!connection) {
+    return c.json({ needsConnection: true, providerSlug, platform: post.platform }, 200)
+  }
+
+  // All good — mark as scheduled
+  const [updated] = await db
+    .update(posts)
+    .set({ status: 'scheduled', updatedAt: new Date() })
+    .where(eq(posts.id, postId))
+    .returning()
+
+  return c.json({ post: updated })
 })
 
 export { postsRouter }
