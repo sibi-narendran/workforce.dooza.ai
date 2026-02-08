@@ -5,13 +5,14 @@ import { useAuthStore } from './lib/store'
 import { validateSession } from './lib/auth-interceptor'
 import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
-import { Dashboard } from './pages/Dashboard'
+
 import { Employees } from './pages/Employees'
 import { EmployeeDetail } from './pages/EmployeeDetail'
 import { Chat } from './pages/Chat'
 import { Library } from './pages/Library'
 import { Integrations } from './pages/Integrations'
 import { Brain } from './pages/Brain'
+import { authApi } from './lib/api'
 import {
   QUERY_STALE_TIME_MS,
   QUERY_GC_TIME_MS,
@@ -21,6 +22,7 @@ import {
   HTTP_CLIENT_ERROR_MIN,
   HTTP_CLIENT_ERROR_MAX,
   TOKEN_REFRESH_CHECK_INTERVAL_MS,
+  ACCOUNTS_URL,
 } from './lib/constants'
 
 /**
@@ -153,13 +155,68 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    window.location.href = `${ACCOUNTS_URL}/signin?product=workforce`
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div className="loading" />
+      </div>
+    )
   }
 
   return <>{children}</>
 }
 
+/**
+ * Parses hash fragment tokens deposited by accounts.dooza.ai redirect,
+ * exchanges them for a workforce session, then clears the hash.
+ */
+function useHashTokenExchange() {
+  const [exchanging, setExchanging] = useState(false)
+  const { setAuth } = useAuthStore()
+
+  useEffect(() => {
+    const hash = window.location.hash.substring(1) // strip leading #
+    if (!hash) return
+
+    const params = new URLSearchParams(hash)
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+
+    if (!accessToken || !refreshToken) return
+
+    // Clear hash immediately to prevent re-processing
+    window.history.replaceState(null, '', window.location.pathname + window.location.search)
+
+    setExchanging(true)
+    authApi
+      .exchange({ accessToken, refreshToken })
+      .then((result: any) => {
+        if (result.success && result.user && result.session) {
+          setAuth(result.user, result.tenant, result.session)
+        } else {
+          window.location.href = `${ACCOUNTS_URL}/signin?product=workforce`
+        }
+      })
+      .catch(() => {
+        window.location.href = `${ACCOUNTS_URL}/signin?product=workforce`
+      })
+      .finally(() => setExchanging(false))
+  }, [setAuth])
+
+  return exchanging
+}
+
 export function App() {
+  const exchanging = useHashTokenExchange()
+
+  if (exchanging) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div className="loading" />
+      </div>
+    )
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -174,7 +231,7 @@ export function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Dashboard />} />
+            <Route index element={<Navigate to="/employees" replace />} />
             <Route path="employees" element={<Employees />} />
             <Route path="library" element={<Library />} />
             <Route path="integrations" element={<Integrations />} />

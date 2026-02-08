@@ -38,9 +38,6 @@ export function Layout() {
 
           {/* Navigation */}
           <nav className="sidebar__nav">
-            <NavItem to="/" icon="dashboard">
-              Dashboard
-            </NavItem>
             <NavItem to="/employees" icon="people">
               Employees
             </NavItem>

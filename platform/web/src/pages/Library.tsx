@@ -3,6 +3,7 @@ import { useLibrary, useInstallAgent, getErrorMessage } from '../lib/queries'
 import { useAuthStore } from '../lib/store'
 import { ErrorDisplay } from '../components/ErrorDisplay'
 import type { LibraryAgent } from '../lib/api'
+import { AgentAvatar, agentTagline } from '../components/AgentAvatar'
 
 export function Library() {
   const { session } = useAuthStore()
@@ -150,7 +151,7 @@ function AgentCard({
   isLoggedIn: boolean
   isInstalled: boolean
 }) {
-  const gradient = agent.gradient || 'linear-gradient(135deg, #6b7280, #4b5563)'
+  const tagline = agentTagline(agent.slug)
 
   return (
     <div
@@ -161,28 +162,14 @@ function AgentCard({
         gap: 12,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        {/* Avatar */}
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 'var(--radius-md)',
-            background: gradient,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ fontSize: 22 }}>{agent.emoji || agent.name?.[0] || '?'}</span>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <AgentAvatar slug={agent.slug} name={agent.name} size={56} />
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3
             style={{
               margin: 0,
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: 600,
               color: 'var(--text-strong)',
             }}
@@ -191,25 +178,14 @@ function AgentCard({
           </h3>
           <div
             style={{
-              fontSize: 12,
+              fontSize: 13,
               color: 'var(--muted)',
-              marginTop: 2,
+              marginTop: 3,
             }}
           >
-            {agent.slug}
+            {tagline}
           </div>
         </div>
-
-        {agent.installCount > 0 && (
-          <div
-            style={{
-              fontSize: 11,
-              color: 'var(--muted)',
-            }}
-          >
-            {agent.installCount} installed
-          </div>
-        )}
       </div>
 
       {agent.description && (

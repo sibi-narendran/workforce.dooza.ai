@@ -265,6 +265,9 @@ export const authApi = {
   refresh: (refreshToken: string) =>
     api('/auth/refresh', { method: 'POST', body: { refreshToken } }),
 
+  exchange: (data: { accessToken: string; refreshToken: string }) =>
+    api('/auth/exchange', { method: 'POST', body: data }),
+
   me: (token: string) =>
     api('/auth/me', { token }),
 }

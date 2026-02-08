@@ -122,6 +122,124 @@ auth.post('/register', zValidator('json', registerSchema), async (c) => {
 })
 
 /**
+ * Exchange tokens from accounts.dooza.ai for a workforce session.
+ * Verifies the access token, finds or creates profile+tenant.
+ */
+const exchangeSchema = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+})
+
+auth.post('/exchange', zValidator('json', exchangeSchema), async (c) => {
+  if (!supabaseAdmin) {
+    return c.json({ error: 'Auth service unavailable' }, 503)
+  }
+
+  const { accessToken, refreshToken } = c.req.valid('json')
+
+  try {
+    // Verify the token with Supabase
+    const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(accessToken)
+
+    if (authError || !authUser) {
+      return c.json({ error: authError?.message || 'Invalid token' }, 401)
+    }
+
+    // Look up existing profile
+    const [profile] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, authUser.id))
+      .limit(1)
+
+    let tenant = null
+
+    if (profile?.tenantId) {
+      // Returning user — load their tenant
+      const [tenantData] = await db
+        .select()
+        .from(tenants)
+        .where(eq(tenants.id, profile.tenantId))
+        .limit(1)
+      tenant = tenantData
+    } else {
+      // First-time user — create tenant + profile
+      const displayName =
+        authUser.user_metadata?.first_name ||
+        authUser.email?.split('@')[0] ||
+        'User'
+      const companyName =
+        authUser.user_metadata?.first_name
+          ? `${authUser.user_metadata.first_name}'s Workspace`
+          : 'My Workspace'
+
+      const slug = companyName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+
+      const [newTenant] = await db
+        .insert(tenants)
+        .values({
+          name: companyName,
+          slug: `${slug}-${Date.now().toString(36)}`,
+          ownerId: authUser.id,
+          plan: 'free',
+        })
+        .returning()
+
+      await db.insert(profiles).values({
+        id: authUser.id,
+        tenantId: newTenant.id,
+        role: 'owner',
+        displayName,
+      })
+
+      // Create tenant directory structure
+      await tenantManager.createTenant(newTenant.id, companyName)
+
+      tenant = newTenant
+    }
+
+    // Decode exp from the JWT for expiresAt
+    let expiresAt: number | undefined
+    try {
+      const payload = JSON.parse(atob(accessToken.split('.')[1]))
+      expiresAt = payload.exp
+    } catch {
+      // If decoding fails, omit expiresAt — client can still use the token
+    }
+
+    return c.json({
+      success: true,
+      user: {
+        id: authUser.id,
+        email: authUser.email,
+        name: profile?.displayName || authUser.user_metadata?.first_name || authUser.email?.split('@')[0],
+        tenantId: tenant?.id,
+        role: profile?.role || 'owner',
+      },
+      tenant: tenant
+        ? {
+            id: tenant.id,
+            name: tenant.name,
+            slug: tenant.slug,
+            plan: tenant.plan,
+          }
+        : null,
+      session: {
+        accessToken,
+        refreshToken,
+        expiresAt,
+      },
+    })
+  } catch (error) {
+    console.error('Token exchange error:', error)
+    return c.json({ error: 'Token exchange failed' }, 500)
+  }
+})
+
+/**
  * Login and get JWT tokens
  */
 auth.post('/login', zValidator('json', loginSchema), async (c) => {

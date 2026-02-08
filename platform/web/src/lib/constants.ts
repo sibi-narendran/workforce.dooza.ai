@@ -68,3 +68,8 @@ export const DEFAULT_ERROR_MESSAGE = 'Something went wrong. Please try again.'
 
 /** Interval in ms between background token refresh checks */
 export const TOKEN_REFRESH_CHECK_INTERVAL_MS = 4 * 60_000 // 4 minutes
+
+// ============= External URLs =============
+
+/** Dooza accounts portal URL */
+export const ACCOUNTS_URL = import.meta.env.VITE_ACCOUNTS_URL || 'https://accounts.dooza.ai'

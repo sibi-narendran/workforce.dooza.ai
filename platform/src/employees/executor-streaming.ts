@@ -9,14 +9,9 @@ import { db } from '../db/client.js'
 import {
   installedAgents,
   agentLibrary,
-  userIntegrations,
-  integrationProviders,
-  agentIntegrationSkills,
 } from '../db/schema.js'
 import { eq, and } from 'drizzle-orm'
-import { env } from '../lib/env.js'
-import { gatewayPool, type GatewayTool } from '../streaming/index.js'
-import { getToolsForToolkits, ComposioTool } from '../integrations/composio-client.js'
+import { gatewayPool } from '../streaming/index.js'
 
 export interface StreamingExecuteOptions {
   thinking?: 'none' | 'low' | 'medium' | 'high'
@@ -96,26 +91,17 @@ export async function executeEmployeeStreaming(
     const agentSlug = installedResult.agent.slug
     const sessionKey = `agent:${agentSlug}:tenant-${tenantId}-${employeeId}`
 
-    // Get Composio tools if tenant has integrations
-    let tools: GatewayTool[] = []
-    if (env.COMPOSIO_API_KEY) {
-      try {
-        tools = await getComposioToolsForExecution(tenantId, installedResult.agent.id)
-      } catch (error) {
-        console.error('[StreamingExecutor] Failed to get Composio tools:', error)
-      }
-    }
-
     // Get WebSocket client for this tenant from the pool
     const wsClient = await gatewayPool.getClient(tenantId)
 
     // Send chat via WebSocket - returns immediately with runId
+    // Note: Tools (api-tools, Composio) are configured per-agent in clawdbot.json,
+    // not passed per-request. The gateway's chat.send RPC doesn't accept a tools param.
     const runId = await wsClient.sendChat({
       sessionKey,
       message,
       agentId: agentSlug,
       timeoutMs: 120000,
-      tools: tools.length > 0 ? tools : undefined,
     })
 
     console.log(`[StreamingExecutor] Started streaming for ${employeeId}, runId: ${runId}`)
@@ -134,65 +120,3 @@ export async function executeEmployeeStreaming(
   }
 }
 
-/**
- * Get Composio tools for execution context
- */
-async function getComposioToolsForExecution(
-  tenantId: string,
-  agentId: string
-): Promise<GatewayTool[]> {
-  // Get tenant's connected integrations
-  const tenantConnections = await db
-    .select({
-      integration: userIntegrations,
-      provider: integrationProviders,
-    })
-    .from(userIntegrations)
-    .innerJoin(integrationProviders, eq(userIntegrations.providerId, integrationProviders.id))
-    .where(
-      and(
-        eq(userIntegrations.tenantId, tenantId),
-        eq(userIntegrations.status, 'connected')
-      )
-    )
-
-  if (tenantConnections.length === 0) {
-    return []
-  }
-
-  // Get agent's allowed integration skills
-  const agentSkills = await db
-    .select({ providerId: agentIntegrationSkills.providerId })
-    .from(agentIntegrationSkills)
-    .where(eq(agentIntegrationSkills.agentId, agentId))
-
-  let allowedProviderIds: string[] | null = null
-  if (agentSkills.length > 0) {
-    allowedProviderIds = agentSkills.map(s => s.providerId)
-  }
-
-  // Filter connections to only allowed integrations
-  const availableConnections = allowedProviderIds
-    ? tenantConnections.filter(c => allowedProviderIds!.includes(c.provider.id))
-    : tenantConnections
-
-  if (availableConnections.length === 0) {
-    return []
-  }
-
-  // Get Composio tools for available apps
-  const toolkits = availableConnections
-    .map(c => c.provider.composioToolkit || c.provider.composioAppKey?.toUpperCase())
-    .filter((t): t is string => !!t)
-
-  const composioTools = await getToolsForToolkits(toolkits)
-
-  return composioTools.map((tool: ComposioTool) => ({
-    type: 'function' as const,
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-    },
-  }))
-}

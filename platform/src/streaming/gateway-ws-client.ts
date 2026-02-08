@@ -312,7 +312,6 @@ export class GatewayWSClient {
       message: params.message,
       idempotencyKey,
       timeoutMs: params.timeoutMs || 120000,
-      ...(params.tools ? { tools: params.tools } : {}),
     })
 
     return response.runId || idempotencyKey

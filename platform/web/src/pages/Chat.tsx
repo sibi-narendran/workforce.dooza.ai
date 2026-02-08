@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { employeesApi, type Employee, ApiError } from '../lib/api'
 import { useAuthStore } from '../lib/store'
 import { WorkspaceButton, WorkspacePanel } from '../components/workspace'
+import { AgentAvatar, agentTagline } from '../components/AgentAvatar'
 import { RoutinesPanel } from '../components/RoutinesPanel'
 import { StreamingClient, sendStreamingChat } from '../lib/streaming'
 import { useChatStore, useChatMessages, useStreamingContent, useIsStreaming } from '../lib/chat-store'
@@ -233,7 +234,7 @@ export function Chat() {
         }}
       >
         <Link
-          to={`/employees/${id}`}
+          to="/employees"
           style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center' }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -241,28 +242,16 @@ export function Chat() {
           </svg>
         </Link>
 
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--accent-subtle)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--accent)',
-            fontWeight: 600,
-          }}
-        >
-          {employee?.name?.[0]?.toUpperCase() || '?'}
-        </div>
+        {employee && (
+          <AgentAvatar slug={employee.type} name={employee.name} size={40} />
+        )}
 
         <div style={{ flex: 1 }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-strong)' }}>
             {employee?.name || 'Unknown'}
           </h2>
           <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>{employee?.type}</span>
+            <span>{employee ? agentTagline(employee.type) : ''}</span>
             <span
               style={{
                 width: 6,
@@ -321,22 +310,10 @@ export function Chat() {
               textAlign: 'center',
             }}
           >
-            <div
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 'var(--radius-lg)',
-                background: 'var(--accent-subtle)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent)',
-                fontSize: 24,
-                fontWeight: 600,
-                marginBottom: 16,
-              }}
-            >
-              {employee?.name?.[0]?.toUpperCase() || '?'}
+            <div style={{ marginBottom: 16 }}>
+              {employee && (
+                <AgentAvatar slug={employee.type} name={employee.name} size={64} />
+              )}
             </div>
             <h3 style={{ margin: '0 0 8px', color: 'var(--text-strong)' }}>
               Start a conversation with {employee?.name}

@@ -30,6 +30,7 @@ app.use(
         'http://localhost:5173',
         'http://localhost:3000',
         'https://workforce.dooza.ai',
+        'https://accounts.dooza.ai',
       ]
       // Allow Vercel and Render preview deployments
       if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com'))) {

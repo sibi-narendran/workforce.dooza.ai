@@ -21,11 +21,6 @@ parameters:
     type: string
     description: "ISO 8601 date/time, e.g. 2026-02-14T10:00:00Z"
     required: true
-  status:
-    type: string
-    description: "Post status"
-    enum: ["draft", "scheduled"]
-    default: "draft"
 
 request:
   method: POST
@@ -45,7 +40,7 @@ request:
       content: "{{params.content}}"
       image_url: "{{params.image_url}}"
       scheduled_date: "{{params.scheduled_date}}"
-      status: "{{params.status}}"
+      status: "draft"
   timeout_ms: 10000
 
 response:
