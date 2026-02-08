@@ -6,7 +6,7 @@ services:
     plan: starter  # Required for persistent disk
     buildCommand: |
       npm i -g pnpm@10 pm2 &&
-      cd clawdbot && pnpm install && pnpm build &&
+      cd clawdbot && pnpm install && pnpm build && pnpm ui:build &&
       cd ../platform && pnpm install && pnpm build
     startCommand: pm2-runtime ecosystem.config.cjs --only gateway,platform
     envVars:

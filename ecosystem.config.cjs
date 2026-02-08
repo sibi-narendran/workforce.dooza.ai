@@ -53,7 +53,7 @@ module.exports = {
       name: 'gateway',
       cwd: path.join(baseDir, 'clawdbot'),
       script: 'node',
-      args: 'scripts/run-node.mjs gateway run --port 18789 --bind loopback',
+      args: 'openclaw.mjs gateway run --port 18789 --bind loopback',
       env: {
         NODE_ENV: 'production',
         TENANT_DATA_DIR: TENANT_DATA_DIR,
@@ -76,8 +76,8 @@ module.exports = {
     {
       name: 'platform',
       cwd: path.join(baseDir, 'platform'),
-      script: 'npx',
-      args: 'tsx src/index.ts',
+      script: 'node',
+      args: 'dist/index.js',
       env: {
         ...platformEnv,
         NODE_ENV: 'production',
