@@ -286,6 +286,15 @@ export async function executeTool(
       arguments: params,
       ...(version ? { version } : { dangerouslySkipVersionCheck: true }),
     })
+
+    // Check if Composio returned an error in the response body (without throwing)
+    const r = result as Record<string, unknown> | undefined
+    if (r?.successful === false || r?.error) {
+      const errMsg = String(r.error || 'Composio reported failure')
+      console.error(`[Composio] Tool ${toolName} returned error:`, errMsg)
+      return { success: false, error: errMsg }
+    }
+
     return { success: true, data: result }
   } catch (error) {
     console.error('[Composio] Tool execution failed:', error)

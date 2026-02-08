@@ -12,6 +12,16 @@ interface SomiWorkspaceProps {
   employee: Employee | null
 }
 
+function displayStatus(status: string): string {
+  switch (status) {
+    case 'draft': return 'Draft'
+    case 'scheduled': return 'Approved'
+    case 'published': return 'Published'
+    case 'failed': return 'Failed'
+    default: return status
+  }
+}
+
 function getToday(): Date {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
@@ -69,9 +79,9 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
 
   const filteredPosts = useMemo(() => {
     if (activeTab === 'scheduled') {
-      return posts.filter((p) => p.status === 'draft' || p.status === 'scheduled')
+      return posts.filter((p) => p.status === 'draft')
     }
-    return posts.filter((p) => p.status === 'published')
+    return posts.filter((p) => p.status === 'scheduled' || p.status === 'published' || p.status === 'failed')
   }, [posts, activeTab])
 
   const handleNavigate = (direction: 'prev' | 'next' | 'today') => {
@@ -174,15 +184,15 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
           className={`somi-tabs__tab ${activeTab === 'scheduled' ? 'somi-tabs__tab--active' : ''}`}
           onClick={() => setActiveTab('scheduled')}
         >
-          Scheduled
-          <span className="somi-tabs__count">{posts.filter((p) => p.status === 'draft' || p.status === 'scheduled').length}</span>
+          Drafts
+          <span className="somi-tabs__count">{posts.filter((p) => p.status === 'draft').length}</span>
         </button>
         <button
           className={`somi-tabs__tab ${activeTab === 'approved' ? 'somi-tabs__tab--active' : ''}`}
           onClick={() => setActiveTab('approved')}
         >
           Approved
-          <span className="somi-tabs__count">{posts.filter((p) => p.status === 'published').length}</span>
+          <span className="somi-tabs__count">{posts.filter((p) => p.status === 'scheduled' || p.status === 'published' || p.status === 'failed').length}</span>
         </button>
       </div>
 
@@ -298,7 +308,7 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
                   selectedPost.status === 'failed' ? 'badge-danger' :
                   'badge-warn'
                 }`}>
-                  {selectedPost.status}
+                  {displayStatus(selectedPost.status)}
                 </span>
               </div>
               <p style={{ color: 'var(--muted)', marginBottom: 12 }}>

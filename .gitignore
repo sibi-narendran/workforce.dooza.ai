@@ -90,3 +90,5 @@ ui/src/ui/__screenshots__/
 # Local tooling
 .serena/
 Core/
+.vercel
+supabase/.temp/

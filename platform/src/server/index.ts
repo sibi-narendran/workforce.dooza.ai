@@ -29,6 +29,7 @@ app.use(
       const allowedOrigins = [
         'http://localhost:5173',
         'http://localhost:3000',
+        'http://localhost:3001',
         'https://workforce.dooza.ai',
         'https://accounts.dooza.ai',
       ]

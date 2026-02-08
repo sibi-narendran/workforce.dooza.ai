@@ -170,26 +170,32 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
  * Parses hash fragment tokens deposited by accounts.dooza.ai redirect,
  * exchanges them for a workforce session, then clears the hash.
  */
+/**
+ * Synchronously extract hash tokens if present.
+ * Must run before first render so ProtectedRoute doesn't redirect.
+ */
+function extractHashTokens(): { accessToken: string; refreshToken: string } | null {
+  const hash = window.location.hash.substring(1)
+  if (!hash) return null
+  const params = new URLSearchParams(hash)
+  const accessToken = params.get('access_token')
+  const refreshToken = params.get('refresh_token')
+  if (!accessToken || !refreshToken) return null
+  // Clear hash immediately to prevent re-processing
+  window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  return { accessToken, refreshToken }
+}
+
 function useHashTokenExchange() {
-  const [exchanging, setExchanging] = useState(false)
+  const [tokens] = useState(extractHashTokens)
+  const [exchanging, setExchanging] = useState(!!tokens)
   const { setAuth } = useAuthStore()
 
   useEffect(() => {
-    const hash = window.location.hash.substring(1) // strip leading #
-    if (!hash) return
+    if (!tokens) return
 
-    const params = new URLSearchParams(hash)
-    const accessToken = params.get('access_token')
-    const refreshToken = params.get('refresh_token')
-
-    if (!accessToken || !refreshToken) return
-
-    // Clear hash immediately to prevent re-processing
-    window.history.replaceState(null, '', window.location.pathname + window.location.search)
-
-    setExchanging(true)
     authApi
-      .exchange({ accessToken, refreshToken })
+      .exchange(tokens)
       .then((result: any) => {
         if (result.success && result.user && result.session) {
           setAuth(result.user, result.tenant, result.session)
@@ -201,7 +207,7 @@ function useHashTokenExchange() {
         window.location.href = `${ACCOUNTS_URL}/signin?product=workforce`
       })
       .finally(() => setExchanging(false))
-  }, [setAuth])
+  }, [tokens, setAuth])
 
   return exchanging
 }
