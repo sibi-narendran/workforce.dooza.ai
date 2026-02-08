@@ -66,19 +66,6 @@ export const employees = pgTable('employees', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 })
 
-// Scheduled Jobs
-export const jobs = pgTable('jobs', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id').references(() => tenants.id).notNull(),
-  employeeId: uuid('employee_id').references(() => employees.id).notNull(),
-  name: text('name').notNull(),
-  schedule: text('schedule').notNull(), // Cron expression
-  prompt: text('prompt').notNull(), // What to tell the employee
-  enabled: boolean('enabled').default(true),
-  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-})
-
 // Scheduled Posts (content calendar)
 export const posts = pgTable('posts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -157,8 +144,6 @@ export type Profile = typeof profiles.$inferSelect
 export type NewProfile = typeof profiles.$inferInsert
 export type Employee = typeof employees.$inferSelect
 export type NewEmployee = typeof employees.$inferInsert
-export type Job = typeof jobs.$inferSelect
-export type NewJob = typeof jobs.$inferInsert
 export type Post = typeof posts.$inferSelect
 export type NewPost = typeof posts.$inferInsert
 export type Conversation = typeof conversations.$inferSelect

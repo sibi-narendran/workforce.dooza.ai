@@ -373,25 +373,22 @@ export const integrationsApi = {
     api<{ status: string }>(`/integrations/${connectionId}/status`, { token }),
 }
 
-// Jobs
-export const jobsApi = {
-  list: (token: string) =>
-    api<{ jobs: Job[] }>('/jobs', { token }),
+// Routines (Clawdbot cron)
+export const routinesApi = {
+  list: (token: string, employeeId: string) =>
+    api<{ routines: Routine[] }>(`/routines/employee/${employeeId}`, { token }),
 
-  get: (token: string, id: string) =>
-    api<{ job: Job }>(`/jobs/${id}`, { token }),
+  create: (token: string, employeeId: string, data: CreateRoutineInput) =>
+    api<{ routine: Routine }>(`/routines/employee/${employeeId}`, { method: 'POST', body: data, token }),
 
-  create: (token: string, data: CreateJobInput) =>
-    api<{ job: Job }>('/jobs', { method: 'POST', body: data, token }),
-
-  update: (token: string, id: string, data: Partial<CreateJobInput>) =>
-    api<{ job: Job }>(`/jobs/${id}`, { method: 'PATCH', body: data, token }),
+  toggle: (token: string, id: string, enabled: boolean) =>
+    api<{ routine: Routine }>(`/routines/${id}`, { method: 'PATCH', body: { enabled }, token }),
 
   delete: (token: string, id: string) =>
-    api(`/jobs/${id}`, { method: 'DELETE', token }),
+    api(`/routines/${id}`, { method: 'DELETE', token }),
 
   run: (token: string, id: string) =>
-    api<{ execution: JobExecution }>(`/jobs/${id}/run`, { method: 'POST', token }),
+    api(`/routines/${id}/run`, { method: 'POST', token }),
 }
 
 // Posts
@@ -481,36 +478,33 @@ export interface Message {
   timestamp?: string
 }
 
-export interface Job {
+export interface Routine {
   id: string
+  agentId?: string
   name: string
-  schedule: string
-  prompt: string
   enabled: boolean
-  lastRunAt: string | null
-  createdAt: string
-  employee: {
-    id: string
-    name: string
-    type: string
-  } | null
+  schedule:
+    | { kind: 'cron'; expr: string; tz?: string }
+    | { kind: 'every'; everyMs: number }
+    | { kind: 'at'; atMs: number }
+  payload:
+    | { kind: 'agentTurn'; message: string }
+    | { kind: 'systemEvent'; text: string }
+  state: {
+    nextRunAtMs?: number
+    lastRunAtMs?: number
+    lastStatus?: 'ok' | 'error' | 'skipped'
+    lastError?: string
+    lastDurationMs?: number
+  }
+  createdAtMs: number
 }
 
-export interface CreateJobInput {
+export interface CreateRoutineInput {
   name: string
-  employeeId: string
-  schedule: string
-  prompt: string
-  enabled?: boolean
-}
-
-export interface JobExecution {
-  jobId: string
-  status: 'running' | 'completed' | 'failed'
-  startedAt: string
-  completedAt?: string
-  result?: string
-  error?: string
+  schedule: string   // cron expression
+  message: string
+  tz?: string        // IANA timezone
 }
 
 export interface LibraryAgent {

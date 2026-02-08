@@ -9,7 +9,6 @@ import { Dashboard } from './pages/Dashboard'
 import { Employees } from './pages/Employees'
 import { EmployeeDetail } from './pages/EmployeeDetail'
 import { Chat } from './pages/Chat'
-import { Jobs } from './pages/Jobs'
 import { Library } from './pages/Library'
 import { Integrations } from './pages/Integrations'
 import { Brain } from './pages/Brain'
@@ -181,7 +180,6 @@ export function App() {
             <Route path="integrations" element={<Integrations />} />
             <Route path="employees/:id" element={<EmployeeDetail />} />
             <Route path="employees/:id/chat" element={<Chat />} />
-            <Route path="jobs" element={<Jobs />} />
             <Route path="brain" element={<Brain />} />
           </Route>
         </Routes>

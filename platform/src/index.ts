@@ -1,7 +1,6 @@
 import { serve } from '@hono/node-server'
 import { app } from './server/index.js'
 import { validateEnv, env } from './lib/env.js'
-import { jobScheduler } from './jobs/scheduler.js'
 import { stopAllGateways } from './tenant/gateway-manager.js'
 import { syncAllAgentTemplates } from './employees/sync.js'
 
@@ -34,11 +33,6 @@ console.log(`[Platform] Starting server on port ${port}...`)
 console.log(`[Platform] Environment: ${env.NODE_ENV}`)
 console.log(`[Platform] AI Model: ${env.DEFAULT_MODEL}`)
 
-// Start job scheduler (skip if database not ready)
-jobScheduler.start().catch((err) => {
-  console.warn('[Platform] Job scheduler failed to start:', err.message)
-})
-
 // Sync agent templates to all installed tenants
 syncAllAgentTemplates().catch((err) => {
   console.warn('[Platform] Template sync failed:', err.message)
@@ -60,9 +54,6 @@ serve(
 // Graceful shutdown
 async function shutdown(signal: string) {
   console.log(`\n[Platform] Received ${signal}, shutting down...`)
-
-  // Stop scheduler
-  jobScheduler.stop()
 
   // Cleanup (no-op in multi-tenant mode - gateway managed externally)
   stopAllGateways()

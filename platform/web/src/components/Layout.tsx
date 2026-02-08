@@ -50,9 +50,6 @@ export function Layout() {
             <NavItem to="/integrations" icon="integrations">
               Integrations
             </NavItem>
-            <NavItem to="/jobs" icon="schedule">
-              Jobs
-            </NavItem>
             <NavItem to="/brain" icon="brain">
               Brain
             </NavItem>

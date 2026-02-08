@@ -6,11 +6,11 @@ import { auth } from './routes/auth.js'
 import { tenantsRouter } from './routes/tenants.js'
 import { employeesRouter } from './routes/employees.js'
 import { conversationsRouter } from './routes/conversations.js'
-import { jobsRouter } from './routes/jobs.js'
 import { libraryRouter } from './routes/library.js'
 import { integrationsRouter } from './routes/integrations.js'
 import { brainRouter } from './routes/brain.js'
 import { postsRouter } from './routes/posts.js'
+import { routinesRouter } from './routes/routines.js'
 import { streamRouter } from './routes/stream.js'
 import internalComposio from './routes/internal-composio.js'
 import internalBrainStorage from './routes/internal-brain-storage.js'
@@ -61,7 +61,7 @@ app.get('/api', (c) => {
       tenant: '/api/tenant',
       employees: '/api/employees',
       conversations: '/api/conversations',
-      jobs: '/api/jobs',
+      routines: '/api/routines',
       posts: '/api/posts',
       integrations: '/api/integrations',
       stream: '/api/stream',
@@ -80,15 +80,15 @@ app.route('/api/auth', auth)
 app.use('/api/tenant/*', authMiddleware)
 // Note: /api/employees list is public, other employee routes use router-level auth
 app.use('/api/conversations/*', authMiddleware)
-app.use('/api/jobs/*', authMiddleware)
 app.use('/api/posts/*', authMiddleware)
+app.use('/api/routines/*', authMiddleware)
 // Note: /api/stream handles its own auth (supports query param for SSE)
 
 app.route('/api/tenant', tenantsRouter)
 app.route('/api/employees', employeesRouter)
 app.route('/api/conversations', conversationsRouter)
-app.route('/api/jobs', jobsRouter)
 app.route('/api/posts', postsRouter)
+app.route('/api/routines', routinesRouter)
 app.route('/api/library', libraryRouter)
 app.route('/api/integrations', integrationsRouter)
 app.route('/api/brain', brainRouter)

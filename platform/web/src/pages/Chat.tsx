@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { employeesApi, type Employee, ApiError } from '../lib/api'
 import { useAuthStore } from '../lib/store'
 import { WorkspaceButton, WorkspacePanel } from '../components/workspace'
+import { RoutinesPanel } from '../components/RoutinesPanel'
 import { StreamingClient, sendStreamingChat } from '../lib/streaming'
 import { useChatStore, useChatMessages, useStreamingContent, useIsStreaming } from '../lib/chat-store'
 
@@ -84,7 +85,7 @@ export function Chat() {
   const [loading, setLoading] = useState(true)
   const [lastError, setLastError] = useState<string | null>(null)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
-  const [showRoutinesToast, setShowRoutinesToast] = useState(false)
+  const [routinesOpen, setRoutinesOpen] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const streamingClientRef = useRef<StreamingClient | null>(null)
@@ -277,8 +278,8 @@ export function Chat() {
         <button
           className="workspace-btn"
           onClick={() => {
-            setShowRoutinesToast(true)
-            setTimeout(() => setShowRoutinesToast(false), 3000)
+            setRoutinesOpen(!routinesOpen)
+            setWorkspaceOpen(false)
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -290,7 +291,10 @@ export function Chat() {
 
         <WorkspaceButton
           isOpen={workspaceOpen}
-          onToggle={() => setWorkspaceOpen(!workspaceOpen)}
+          onToggle={() => {
+            setWorkspaceOpen(!workspaceOpen)
+            setRoutinesOpen(false)
+          }}
         />
       </header>
 
@@ -504,16 +508,12 @@ export function Chat() {
         employee={employee}
       />
 
-      {/* Routines Coming Soon Toast */}
-      {showRoutinesToast && (
-        <div className="toast">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-          <span>Routines feature coming this week!</span>
-        </div>
-      )}
+      <RoutinesPanel
+        isOpen={routinesOpen}
+        onClose={() => setRoutinesOpen(false)}
+        employeeId={id || ''}
+        employeeName={employee?.name}
+      />
 
       {/* Cursor blink animation */}
       <style>{`

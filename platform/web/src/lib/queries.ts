@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from './store'
-import { employeesApi, jobsApi, libraryApi, conversationsApi, ApiError } from './api'
+import { employeesApi, routinesApi, libraryApi, conversationsApi, ApiError } from './api'
 import {
   HTTP_UNAUTHORIZED,
   HTTP_BAD_REQUEST,
@@ -15,7 +15,7 @@ import {
 export const queryKeys = {
   employees: ['employees'] as const,
   employee: (id: string) => ['employees', id] as const,
-  jobs: ['jobs'] as const,
+  routines: (employeeId: string) => ['routines', employeeId] as const,
   library: ['library'] as const,
   conversations: ['conversations'] as const,
   employeeConversations: (id: string) => ['conversations', 'employee', id] as const,
@@ -132,104 +132,78 @@ export function useDeleteEmployee() {
   })
 }
 
-// ============= Jobs Queries =============
+// ============= Routines Queries =============
 
-export function useJobs() {
+export function useRoutines(employeeId: string | undefined, enabled = true) {
   const { session } = useAuthStore()
   const accessToken = session?.accessToken
 
   return useQuery({
-    queryKey: queryKeys.jobs,
+    queryKey: queryKeys.routines(employeeId ?? ''),
     queryFn: async () => {
-      if (!accessToken) {
+      if (!accessToken || !employeeId) {
         throw new ApiError('No valid session', HTTP_UNAUTHORIZED)
       }
-      const res = await jobsApi.list(accessToken)
-      return res.jobs
+      const res = await routinesApi.list(accessToken, employeeId)
+      return res.routines
     },
-    enabled: !!accessToken,
+    enabled: !!accessToken && !!employeeId && enabled,
+    refetchInterval: enabled ? 30_000 : false,
   })
 }
 
-export function useJobsWithEmployees() {
-  const employeesQuery = useEmployees()
-  const jobsQuery = useJobs()
-
-  return {
-    jobs: jobsQuery.data,
-    employees: employeesQuery.data,
-    isLoading: jobsQuery.isLoading || employeesQuery.isLoading,
-    error: jobsQuery.error || employeesQuery.error,
-    refetch: async () => {
-      // Await both refetches and aggregate results
-      const results = await Promise.allSettled([
-        jobsQuery.refetch(),
-        employeesQuery.refetch(),
-      ])
-
-      // Check if any refetch failed
-      const failures = results.filter(
-        (r): r is PromiseRejectedResult => r.status === 'rejected'
-      )
-      if (failures.length > 0) {
-        throw new Error(getErrorMessage(failures[0].reason))
-      }
-    },
-  }
-}
-
-export function useCreateJob() {
+export function useCreateRoutine(employeeId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: Parameters<typeof jobsApi.create>[1]) => {
+    mutationFn: (data: Parameters<typeof routinesApi.create>[2]) => {
       const token = getAccessToken()
-      return jobsApi.create(token, data)
+      return routinesApi.create(token, employeeId, data)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs })
+      queryClient.invalidateQueries({ queryKey: queryKeys.routines(employeeId) })
     },
   })
 }
 
-export function useUpdateJob() {
+export function useToggleRoutine(employeeId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof jobsApi.update>[2] }) => {
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => {
       const token = getAccessToken()
-      return jobsApi.update(token, id, data)
+      return routinesApi.toggle(token, id, enabled)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs })
+      queryClient.invalidateQueries({ queryKey: queryKeys.routines(employeeId) })
     },
   })
 }
 
-export function useDeleteJob() {
+export function useDeleteRoutine(employeeId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (id: string) => {
       const token = getAccessToken()
-      return jobsApi.delete(token, id)
+      return routinesApi.delete(token, id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs })
+      queryClient.invalidateQueries({ queryKey: queryKeys.routines(employeeId) })
     },
   })
 }
 
-export function useRunJob() {
+export function useRunRoutine(employeeId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (id: string) => {
       const token = getAccessToken()
-      return jobsApi.run(token, id)
+      return routinesApi.run(token, id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs })
+      queryClient.invalidateQueries({ queryKey: queryKeys.routines(employeeId) })
     },
   })
 }
@@ -309,19 +283,16 @@ export function useEmployeeConversations(employeeId: string | undefined) {
 
 export function useDashboardData() {
   const employeesQuery = useEmployees()
-  const jobsQuery = useJobs()
   const conversationsQuery = useConversations()
 
   return {
     employees: employeesQuery.data ?? [],
-    jobs: jobsQuery.data ?? [],
     conversations: conversationsQuery.data ?? [],
-    isLoading: employeesQuery.isLoading || jobsQuery.isLoading || conversationsQuery.isLoading,
-    error: employeesQuery.error || jobsQuery.error || conversationsQuery.error,
+    isLoading: employeesQuery.isLoading || conversationsQuery.isLoading,
+    error: employeesQuery.error || conversationsQuery.error,
     refetch: async () => {
       const results = await Promise.allSettled([
         employeesQuery.refetch(),
-        jobsQuery.refetch(),
         conversationsQuery.refetch(),
       ])
 

@@ -5,7 +5,7 @@ import { EmployeeCard } from '../components/EmployeeCard'
 
 export function Dashboard() {
   const { tenant } = useAuthStore()
-  const { employees, jobs, conversations, isLoading } = useDashboardData()
+  const { employees, conversations, isLoading } = useDashboardData()
 
   if (isLoading) {
     return (
@@ -41,12 +41,6 @@ export function Dashboard() {
           value={employees.length}
           color="var(--accent)"
           link="/employees"
-        />
-        <StatCard
-          label="Scheduled Jobs"
-          value={jobs.filter((j) => j.enabled).length}
-          color="var(--accent-2)"
-          link="/jobs"
         />
         <StatCard
           label="Conversations"
@@ -103,70 +97,6 @@ export function Dashboard() {
         )}
       </section>
 
-      {/* Recent Jobs */}
-      <section>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 16,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-strong)' }}>
-            Scheduled Jobs
-          </h2>
-          <Link to="/jobs" style={{ fontSize: 13, color: 'var(--accent)' }}>
-            View all
-          </Link>
-        </div>
-
-        {jobs.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-            <p style={{ margin: '0 0 16px', color: 'var(--muted)' }}>
-              No scheduled jobs. Set up automated tasks for your employees.
-            </p>
-            <Link to="/jobs" className="btn">
-              Create Job
-            </Link>
-          </div>
-        ) : (
-          <div className="card" style={{ padding: 0 }}>
-            {jobs.slice(0, 5).map((job, i) => (
-              <div
-                key={job.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '12px 16px',
-                  borderBottom: i < jobs.length - 1 ? '1px solid var(--border)' : 'none',
-                }}
-              >
-                <div
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: job.enabled ? 'var(--ok)' : 'var(--muted)',
-                    marginRight: 12,
-                  }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500, color: 'var(--text-strong)' }}>{job.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    {job.employee?.name || 'Unknown'} - {job.schedule}
-                  </div>
-                </div>
-                {job.lastRunAt && (
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                    Last: {new Date(job.lastRunAt).toLocaleDateString()}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   )
 }

@@ -11,7 +11,7 @@ import { WebSocket } from 'ws'
 import { randomUUID } from 'crypto'
 import { env } from '../lib/env.js'
 import { eventRouter } from './event-router.js'
-import type { ChatEvent, ChatSendParams, GatewayChatEvent, ChatCallback } from './types.js'
+import type { ChatEvent, ChatSendParams, GatewayChatEvent, ChatCallback, CronJob, CronJobCreate, CronJobPatch } from './types.js'
 
 const GATEWAY_TOKEN = env.CLAWDBOT_HOOK_TOKEN
 
@@ -354,6 +354,33 @@ export class GatewayWSClient {
             .map(p => p.text || '')
             .join(''),
     }))
+  }
+
+  // ============= Cron RPC Methods =============
+
+  async cronList(): Promise<{ jobs: CronJob[] }> {
+    if (!this.connected) await this.connect()
+    return this.rpc<{ jobs: CronJob[] }>('cron.list', { includeDisabled: true })
+  }
+
+  async cronAdd(job: CronJobCreate): Promise<CronJob> {
+    if (!this.connected) await this.connect()
+    return this.rpc<CronJob>('cron.add', { job })
+  }
+
+  async cronUpdate(id: string, patch: CronJobPatch): Promise<CronJob> {
+    if (!this.connected) await this.connect()
+    return this.rpc<CronJob>('cron.update', { id, patch })
+  }
+
+  async cronRemove(id: string): Promise<{ ok: boolean }> {
+    if (!this.connected) await this.connect()
+    return this.rpc<{ ok: boolean }>('cron.remove', { id })
+  }
+
+  async cronRun(id: string): Promise<{ ok: boolean }> {
+    if (!this.connected) await this.connect()
+    return this.rpc<{ ok: boolean }>('cron.run', { id, mode: 'force' })
   }
 
   /**
