@@ -158,7 +158,7 @@ export async function updateAgentForTenant(
 
   // Copy entire template, then restore tenant-specific data from backup.
   // These files/dirs are per-tenant and must survive template updates:
-  const TENANT_PRESERVED = ['memory', 'USER.md', 'MEMORY.md', 'TOOLS.md']
+  const TENANT_PRESERVED = ['memory', 'USER.md', 'MEMORY.md']
   const backupDir = join(destPath, '.tenant-backup')
 
   // Step 1: Backup tenant-specific files
