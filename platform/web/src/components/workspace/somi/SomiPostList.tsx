@@ -4,7 +4,7 @@ import { PlatformIcon, platformColors } from './PlatformIcon'
 
 interface SomiPostListProps {
   posts: ScheduledPost[]
-  onSelectPost?: (post: ScheduledPost) => void
+  onSelectPost?: (post: ScheduledPost, dayPosts: ScheduledPost[]) => void
 }
 
 const statusClass: Record<string, string> = {
@@ -47,10 +47,10 @@ export function SomiPostList({ posts, onSelectPost }: SomiPostListProps) {
             <div
               key={post.id}
               className="somi-post-list__item"
-              onClick={() => onSelectPost?.(post)}
+              onClick={() => onSelectPost?.(post, [post])}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && onSelectPost?.(post)}
+              onKeyDown={(e) => e.key === 'Enter' && onSelectPost?.(post, [post])}
             >
               {/* Thumbnail */}
               <div className="somi-post-list__thumb">

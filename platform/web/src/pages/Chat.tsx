@@ -62,6 +62,9 @@ export function Chat() {
   const [routinesOpen, setRoutinesOpen] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const isNearBottomRef = useRef(true)
+  const hasScrolledOnLoad = useRef(false)
   const streamingClientRef = useRef<StreamingClient | null>(null)
 
   // Chat store
@@ -158,10 +161,31 @@ export function Chat() {
     }
   }, [session?.accessToken, id])
 
-  // Auto-scroll to bottom
+  // Scroll helpers
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior })
+  }, [])
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    isNearBottomRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 80
+  }, [])
+
+  // Instant jump on history load (no visible scroll animation)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent])
+    if (messages.length > 0 && !hasScrolledOnLoad.current) {
+      hasScrolledOnLoad.current = true
+      scrollToBottom('instant')
+    }
+  }, [messages, scrollToBottom])
+
+  // During streaming: only scroll if user is near the bottom
+  useEffect(() => {
+    if (streamingContent && isNearBottomRef.current) {
+      scrollToBottom('instant')
+    }
+  }, [streamingContent, scrollToBottom])
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || !session?.accessToken || !id) return
@@ -183,6 +207,8 @@ export function Chat() {
 
     // Add user message to store
     addUserMessage(id, messageText)
+    isNearBottomRef.current = true
+    scrollToBottom('smooth')
 
     try {
       // Send message via streaming endpoint
@@ -195,7 +221,7 @@ export function Chat() {
       setLastError(errorMsg)
       useChatStore.getState().setError(id, 'send-error', `Error: ${errorMsg}`)
     }
-  }, [input, session?.accessToken, id, addUserMessage, startStreaming])
+  }, [input, session?.accessToken, id, addUserMessage, startStreaming, scrollToBottom])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -281,6 +307,8 @@ export function Chat() {
 
       {/* Messages */}
       <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
         style={{
           flex: 1,
           overflow: 'auto',

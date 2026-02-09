@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from './store'
-import { employeesApi, routinesApi, libraryApi, conversationsApi, ApiError } from './api'
+import { employeesApi, routinesApi, libraryApi, conversationsApi, postsApi, ApiError } from './api'
+import type { CreatePostInput } from './api'
 import {
   HTTP_UNAUTHORIZED,
   HTTP_BAD_REQUEST,
@@ -19,6 +20,7 @@ export const queryKeys = {
   library: ['library'] as const,
   conversations: ['conversations'] as const,
   employeeConversations: (id: string) => ['conversations', 'employee', id] as const,
+  posts: (agentSlug: string, months: string[]) => ['posts', agentSlug, ...months] as const,
 } as const
 
 // ============= Helpers =============
@@ -305,6 +307,74 @@ export function useDashboardData() {
     },
   }
 }
+
+// ============= Posts Queries =============
+
+export function usePosts(agentSlug: string, months: string[]) {
+  const { session } = useAuthStore()
+  const accessToken = session?.accessToken
+
+  return useQuery({
+    queryKey: queryKeys.posts(agentSlug, months),
+    queryFn: async () => {
+      if (!accessToken) {
+        throw new ApiError('No valid session', HTTP_UNAUTHORIZED)
+      }
+      const results = await Promise.all(
+        months.map((month) => postsApi.list(accessToken, { month, agentSlug }))
+      )
+      const all = results.flatMap((r) => r.posts)
+      // Dedupe by id (months may overlap)
+      return Array.from(new Map(all.map((p) => [p.id, p])).values())
+    },
+    enabled: !!accessToken && months.length > 0,
+    refetchInterval: 15_000,
+  })
+}
+
+export function useCreatePost(agentSlug: string, months: string[]) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: CreatePostInput) => {
+      const token = getAccessToken()
+      return postsApi.create(token, data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts(agentSlug, months) })
+    },
+  })
+}
+
+export function useDeletePost(agentSlug: string, months: string[]) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => {
+      const token = getAccessToken()
+      return postsApi.delete(token, id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts(agentSlug, months) })
+    },
+  })
+}
+
+export function useApprovePost(agentSlug: string, months: string[]) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => {
+      const token = getAccessToken()
+      return postsApi.approve(token, id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts(agentSlug, months) })
+    },
+  })
+}
+
+// ============= Combined Queries =============
 
 export function useEmployeeDetail(id: string | undefined) {
   const employeeQuery = useEmployee(id)

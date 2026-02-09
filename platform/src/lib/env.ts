@@ -60,6 +60,9 @@ export function validateEnv() {
   if (!process.env.OPENROUTER_API_KEY) {
     console.warn('[Env] OPENROUTER_API_KEY not set - OpenRouter fallback will fail')
   }
+  if (!process.env.COMPOSIO_API_KEY) {
+    console.warn('[Env] COMPOSIO_API_KEY not set - scheduled post publishing will fail')
+  }
   if (!process.env.CLAWDBOT_GATEWAY_URL && !process.env.CLAWDBOT_GATEWAY_HOST) {
     console.warn('[Env] CLAWDBOT_GATEWAY_URL/HOST not set - using default http://127.0.0.1:18789')
   }

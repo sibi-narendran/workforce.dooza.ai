@@ -46,7 +46,7 @@ function nowInSeconds(): number {
  * @param expiresAt - Unix timestamp in seconds (from Supabase)
  */
 export function isTokenExpired(expiresAt?: number): boolean {
-  if (!expiresAt) return false
+  if (!expiresAt) return true
   return nowInSeconds() >= expiresAt
 }
 
@@ -55,7 +55,7 @@ export function isTokenExpired(expiresAt?: number): boolean {
  * @param expiresAt - Unix timestamp in seconds (from Supabase)
  */
 export function shouldRefreshToken(expiresAt?: number): boolean {
-  if (!expiresAt) return false
+  if (!expiresAt) return true
   return nowInSeconds() >= expiresAt - REFRESH_BUFFER_SECONDS
 }
 

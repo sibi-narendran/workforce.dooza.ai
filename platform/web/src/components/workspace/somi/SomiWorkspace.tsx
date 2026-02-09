@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { Employee } from '../../../lib/api'
-import { postsApi, integrationsApi } from '../../../lib/api'
+import { integrationsApi } from '../../../lib/api'
 import { useAuthStore } from '../../../lib/store'
+import { usePosts, useCreatePost, useDeletePost, useApprovePost } from '../../../lib/queries'
 import type { ScheduledPost, Platform } from './somi.types'
 import { SomiCalendar } from './SomiCalendar'
 import { SomiPostList } from './SomiPostList'
@@ -33,15 +34,14 @@ function formatMonth(date: Date): string {
 }
 
 export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
-  const [posts, setPosts] = useState<ScheduledPost[]>([])
   const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null)
+  const [selectedDayPosts, setSelectedDayPosts] = useState<ScheduledPost[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [startDate, setStartDate] = useState(getToday)
-  const [loading, setLoading] = useState(false)
-  const [approving, setApproving] = useState(false)
   const [connectionPrompt, setConnectionPrompt] = useState<{ platform: string; providerSlug: string } | null>(null)
   const [activeTab, setActiveTab] = useState<StatusTab>('scheduled')
+  const [copied, setCopied] = useState(false)
   const session = useAuthStore((s) => s.session)
 
   // The 14-day window may span 2 months — compute which months to fetch
@@ -53,35 +53,17 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
     return m1 === m2 ? [m1] : [m1, m2]
   }, [startDate])
 
-  const fetchPosts = useCallback(async () => {
-    if (!session?.accessToken || !employee) return
-    setLoading(true)
-    try {
-      const results = await Promise.all(
-        monthsToFetch.map((month) =>
-          postsApi.list(session.accessToken, { month, agentSlug: 'somi' })
-        )
-      )
-      // Merge and dedupe by id
-      const all = results.flatMap((r) => r.posts)
-      const unique = Array.from(new Map(all.map((p) => [p.id, p])).values())
-      setPosts(unique as unknown as ScheduledPost[])
-    } catch (err) {
-      console.error('Failed to fetch posts:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [session?.accessToken, employee, monthsToFetch])
-
-  useEffect(() => {
-    fetchPosts()
-  }, [fetchPosts])
+  const { data: posts = [], isLoading: loading } = usePosts('somi', monthsToFetch)
+  const createPost = useCreatePost('somi', monthsToFetch)
+  const deletePost = useDeletePost('somi', monthsToFetch)
+  const approvePost = useApprovePost('somi', monthsToFetch)
 
   const filteredPosts = useMemo(() => {
+    const typed = posts as unknown as ScheduledPost[]
     if (activeTab === 'scheduled') {
-      return posts.filter((p) => p.status === 'draft')
+      return typed.filter((p) => p.status === 'draft')
     }
-    return posts.filter((p) => p.status === 'scheduled' || p.status === 'published' || p.status === 'failed')
+    return typed.filter((p) => p.status === 'scheduled' || p.status === 'published' || p.status === 'failed')
   }, [posts, activeTab])
 
   const handleNavigate = (direction: 'prev' | 'next' | 'today') => {
@@ -102,15 +84,27 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
     setShowAddModal(true)
   }
 
-  const handleSelectPost = (post: ScheduledPost) => {
+  const handleSelectPost = (post: ScheduledPost, dayPosts: ScheduledPost[]) => {
     setSelectedPost(post)
+    setSelectedDayPosts(dayPosts)
+  }
+
+  const selectedIndex = selectedPost ? selectedDayPosts.findIndex((p) => p.id === selectedPost.id) : -1
+  const canNavPrev = selectedIndex > 0
+  const canNavNext = selectedIndex >= 0 && selectedIndex < selectedDayPosts.length - 1
+
+  const handleNavPost = (direction: 'prev' | 'next') => {
+    const nextIndex = direction === 'prev' ? selectedIndex - 1 : selectedIndex + 1
+    if (nextIndex >= 0 && nextIndex < selectedDayPosts.length) {
+      setSelectedPost(selectedDayPosts[nextIndex])
+    }
   }
 
   const handleCreatePost = async (title: string, content: string, platform: Platform, imageUrl: string) => {
     if (!selectedDate || !session?.accessToken || !employee) return
 
     try {
-      const { post } = await postsApi.create(session.accessToken, {
+      await createPost.mutateAsync({
         agentSlug: 'somi',
         platform,
         title: title || undefined,
@@ -119,7 +113,6 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
         scheduledDate: selectedDate.toISOString(),
         status: 'draft',
       })
-      setPosts((prev) => [...prev, post as unknown as ScheduledPost])
       setShowAddModal(false)
       setSelectedDate(null)
     } catch (err) {
@@ -128,36 +121,39 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
   }
 
   const handleDeletePost = async (id: string) => {
-    if (!session?.accessToken) return
     try {
-      await postsApi.delete(session.accessToken, id)
-      setPosts((prev) => prev.filter((p) => p.id !== id))
-      setSelectedPost(null)
+      await deletePost.mutateAsync(id)
+      const remaining = selectedDayPosts.filter((p) => p.id !== id)
+      setSelectedDayPosts(remaining)
+      if (remaining.length > 0) {
+        setSelectedPost(remaining[Math.min(selectedIndex, remaining.length - 1)])
+      } else {
+        setSelectedPost(null)
+      }
     } catch (err) {
       console.error('Failed to delete post:', err)
     }
   }
 
   const handleApprovePost = async (post: ScheduledPost) => {
-    if (!session?.accessToken) return
-    setApproving(true)
     try {
-      const result = await postsApi.approve(session.accessToken, post.id)
+      const result = await approvePost.mutateAsync(post.id)
       if (result.needsConnection && result.providerSlug && result.platform) {
         setConnectionPrompt({ platform: result.platform, providerSlug: result.providerSlug })
       } else if (result.error) {
         alert(result.error)
       } else if (result.post) {
-        setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, status: 'scheduled' } : p)))
         setSelectedPost(null)
       }
     } catch (err) {
       console.error('Failed to approve post:', err)
       alert(err instanceof Error ? err.message : 'Failed to approve post')
-    } finally {
-      setApproving(false)
     }
   }
+
+  useEffect(() => {
+    setCopied(false)
+  }, [selectedPost?.id])
 
   const handleConnectPlatform = async () => {
     if (!session?.accessToken || !connectionPrompt) return
@@ -185,14 +181,14 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
           onClick={() => setActiveTab('scheduled')}
         >
           Drafts
-          <span className="somi-tabs__count">{posts.filter((p) => p.status === 'draft').length}</span>
+          <span className="somi-tabs__count">{(posts as unknown as ScheduledPost[]).filter((p) => p.status === 'draft').length}</span>
         </button>
         <button
           className={`somi-tabs__tab ${activeTab === 'approved' ? 'somi-tabs__tab--active' : ''}`}
           onClick={() => setActiveTab('approved')}
         >
           Approved
-          <span className="somi-tabs__count">{posts.filter((p) => p.status === 'scheduled' || p.status === 'published' || p.status === 'failed').length}</span>
+          <span className="somi-tabs__count">{(posts as unknown as ScheduledPost[]).filter((p) => p.status === 'scheduled' || p.status === 'published' || p.status === 'failed').length}</span>
         </button>
       </div>
 
@@ -290,14 +286,41 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
           <div className="somi-modal" onClick={(e) => e.stopPropagation()}>
             <div className="somi-modal__header">
               <h4>{selectedPost.title || selectedPost.content.slice(0, 40)}</h4>
-              <button
-                className="btn btn-ghost"
-                onClick={() => setSelectedPost(null)}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {selectedDayPosts.length > 1 && (
+                  <div className="somi-modal__nav">
+                    <button
+                      className="btn btn-ghost somi-modal__nav-btn"
+                      onClick={() => handleNavPost('prev')}
+                      disabled={!canNavPrev}
+                      title="Previous post"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M15 18l-6-6 6-6" />
+                      </svg>
+                    </button>
+                    <span className="somi-modal__nav-count">{selectedIndex + 1}/{selectedDayPosts.length}</span>
+                    <button
+                      className="btn btn-ghost somi-modal__nav-btn"
+                      onClick={() => handleNavPost('next')}
+                      disabled={!canNavNext}
+                      title="Next post"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => setSelectedPost(null)}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <div className="somi-modal__body">
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -335,9 +358,40 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
                   <button
                     className="btn btn-primary"
                     onClick={() => handleApprovePost(selectedPost)}
-                    disabled={approving}
+                    disabled={approvePost.isPending}
                   >
-                    {approving ? 'Approving...' : 'Approve'}
+                    {approvePost.isPending ? 'Approving...' : 'Approve'}
+                  </button>
+                )}
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedPost.content)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  }}
+                >
+                  {copied ? 'Copied!' : 'Copy Content'}
+                </button>
+                {selectedPost.imageUrl && (
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      fetch(selectedPost.imageUrl!)
+                        .then((res) => res.blob())
+                        .then((blob) => {
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `somi-${selectedPost.platform}-${selectedPost.id}.jpg`
+                          document.body.appendChild(a)
+                          a.click()
+                          document.body.removeChild(a)
+                          URL.revokeObjectURL(url)
+                        })
+                    }}
+                  >
+                    Download Image
                   </button>
                 )}
                 <button

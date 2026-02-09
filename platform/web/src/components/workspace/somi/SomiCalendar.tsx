@@ -6,7 +6,7 @@ interface SomiCalendarProps {
   posts: ScheduledPost[]
   startDate: Date
   onAddPost?: (date: Date) => void
-  onSelectPost?: (post: ScheduledPost) => void
+  onSelectPost?: (post: ScheduledPost, dayPosts: ScheduledPost[]) => void
   onNavigate?: (direction: 'prev' | 'next' | 'today') => void
   loading?: boolean
 }
@@ -143,7 +143,7 @@ export function SomiCalendar({ posts, startDate, onAddPost, onSelectPost, onNavi
                   <button
                     key={group.platform}
                     className="somi-calendar__icon"
-                    onClick={() => onSelectPost?.(group.posts[0])}
+                    onClick={() => onSelectPost?.(group.posts[0], day.posts)}
                     title={`${group.posts.length} ${group.platform} post${group.posts.length > 1 ? 's' : ''}`}
                     style={{
                       backgroundColor: platformColors[group.platform],

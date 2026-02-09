@@ -10,6 +10,7 @@ interface PostData {
   title?: string | null
   imageUrl?: string | null
   pageId?: string | null
+  igUserId?: string | null
 }
 
 interface PublishStep {
@@ -69,13 +70,14 @@ const SOCIAL_PLATFORMS: Record<string, SocialPlatformConfig> = {
         buildParams: (p) => ({
           image_url: p.imageUrl!,
           caption: p.content.slice(0, 2200),
-          content_type: 'IMAGE',
+          content_type: 'photo',
         }),
       },
       {
         action: 'INSTAGRAM_CREATE_POST',
-        buildParams: (_p, prevResult) => ({
-          creation_id: (prevResult as Record<string, unknown>)?.creation_id,
+        buildParams: (p, prevResult) => ({
+          creation_id: (prevResult as Record<string, unknown>)?.id,
+          ig_user_id: p.igUserId,
         }),
       },
     ],

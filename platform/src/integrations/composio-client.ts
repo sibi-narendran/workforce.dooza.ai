@@ -295,7 +295,7 @@ export async function executeTool(
       return { success: false, error: errMsg }
     }
 
-    return { success: true, data: result }
+    return { success: true, data: (result as Record<string, unknown>)?.data ?? result }
   } catch (error) {
     console.error('[Composio] Tool execution failed:', error)
     return {

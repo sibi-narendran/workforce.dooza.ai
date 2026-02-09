@@ -95,11 +95,21 @@ class PostPublisher {
         pageId = (meta?.selectedPageId as string) || null
       }
 
+      // Look up Instagram user ID (needed for INSTAGRAM_CREATE_POST)
+      let igUserId: string | null = null
+      if (post.platform === 'instagram') {
+        const igInfo = await executeTool(post.tenantId, 'INSTAGRAM_GET_USER_INFO', {})
+        if (igInfo.success) {
+          igUserId = (igInfo.data as Record<string, unknown>)?.id as string || null
+        }
+      }
+
       const postData = {
         content: post.content,
         title: post.title,
         imageUrl: post.imageUrl,
         pageId,
+        igUserId,
       }
 
       // Execute steps sequentially, passing each result to the next
