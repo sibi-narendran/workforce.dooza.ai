@@ -156,40 +156,46 @@ export async function updateAgentForTenant(
     throw new Error(`Agent template not found: ${agentSlug}`)
   }
 
-  // Use a reliable approach: copy entire template, then restore memory from backup
-  // Step 1: Backup tenant's memory directory if it exists
-  const tenantMemoryPath = join(destPath, 'memory')
-  const backupMemoryPath = join(destPath, '.memory-backup')
-  let hadMemory = false
+  // Copy entire template, then restore tenant-specific data from backup.
+  // These files/dirs are per-tenant and must survive template updates:
+  const TENANT_PRESERVED = ['memory', 'USER.md', 'MEMORY.md']
+  const backupDir = join(destPath, '.tenant-backup')
 
-  try {
-    await access(tenantMemoryPath)
-    hadMemory = true
-    // Backup memory
-    await cp(tenantMemoryPath, backupMemoryPath, { recursive: true, force: true })
-  } catch {
-    // No memory directory to backup
+  // Step 1: Backup tenant-specific files
+  const preserved: string[] = []
+  for (const name of TENANT_PRESERVED) {
+    try {
+      await access(join(destPath, name))
+      preserved.push(name)
+    } catch {
+      // File/dir doesn't exist yet — nothing to preserve
+    }
+  }
+  if (preserved.length > 0) {
+    await mkdir(backupDir, { recursive: true })
+    for (const name of preserved) {
+      await cp(join(destPath, name), join(backupDir, name), { recursive: true, force: true })
+    }
   }
 
-  // Step 2: Copy entire template (this overwrites everything including memory)
+  // Step 2: Copy entire template (overwrites everything)
   await cp(templatePath, destPath, {
     recursive: true,
     force: true,
     preserveTimestamps: true,
   })
 
-  // Step 3: Restore tenant's memory from backup
-  if (hadMemory) {
-    try {
-      // Remove the template's memory (if any)
-      await rm(tenantMemoryPath, { recursive: true, force: true })
-      // Restore tenant's memory
-      await cp(backupMemoryPath, tenantMemoryPath, { recursive: true, force: true })
-      // Clean up backup
-      await rm(backupMemoryPath, { recursive: true, force: true })
-    } catch (err) {
-      console.warn(`[Installer] Failed to restore memory for ${agentSlug}:`, err)
+  // Step 3: Restore tenant-specific files from backup
+  if (preserved.length > 0) {
+    for (const name of preserved) {
+      try {
+        await rm(join(destPath, name), { recursive: true, force: true })
+        await cp(join(backupDir, name), join(destPath, name), { recursive: true, force: true })
+      } catch (err) {
+        console.warn(`[Installer] Failed to restore ${name} for ${agentSlug}:`, err)
+      }
     }
+    await rm(backupDir, { recursive: true, force: true })
   }
 
   console.log(`[Installer] Updated agent ${agentSlug} for tenant ${tenantId}`)
