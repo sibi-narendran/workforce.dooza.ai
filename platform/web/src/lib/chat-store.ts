@@ -32,6 +32,7 @@ interface ChatState {
 
   // Actions
   initChat: (employeeId: string) => void
+  loadHistory: (employeeId: string, messages: Array<{ role: string; content: string }>) => void
   addUserMessage: (employeeId: string, content: string) => string
   startStreaming: (employeeId: string, runId: string) => void
   appendToken: (employeeId: string, token: string) => void
@@ -66,6 +67,30 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         },
       })
     }
+  },
+
+  loadHistory: (employeeId: string, messages: Array<{ role: string; content: string; timestamp?: number }>) => {
+    const { chats } = get()
+    const chat = chats[employeeId]
+    // Only load if chat exists and has no messages yet (avoid overwriting active conversation)
+    if (!chat || chat.messages.length > 0) return
+
+    const chatMessages: ChatMessage[] = messages.map((msg) => ({
+      id: generateMessageId(),
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+      timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+    }))
+
+    set({
+      chats: {
+        ...chats,
+        [employeeId]: {
+          ...chat,
+          messages: chatMessages,
+        },
+      },
+    })
   },
 
   addUserMessage: (employeeId: string, content: string) => {

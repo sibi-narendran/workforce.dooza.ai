@@ -188,6 +188,38 @@ streamRouter.post('/employee/:employeeId/chat', zValidator('json', streamChatSch
 })
 
 /**
+ * Get chat history for an employee (from clawdbot gateway)
+ *
+ * GET /api/stream/employee/:employeeId/history
+ */
+streamRouter.get('/employee/:employeeId/history', async (c) => {
+  const tenantId = c.get('tenantId')
+  const employeeId = c.req.param('employeeId')
+
+  const access = await verifyEmployeeAccess(employeeId, tenantId)
+  if (!access) {
+    return c.json({ error: 'Employee not found' }, 404)
+  }
+
+  const sessionKey = await getSessionKeyForEmployee(tenantId, employeeId)
+  if (!sessionKey) {
+    return c.json({ messages: [] })
+  }
+
+  try {
+    const wsClient = await gatewayPool.getClient(tenantId)
+    const raw = await wsClient.getChatHistory(sessionKey)
+    const messages = raw.filter(
+      (m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim()
+    )
+    return c.json({ messages })
+  } catch (error) {
+    console.error('[Stream] Failed to fetch chat history:', error)
+    return c.json({ messages: [] })
+  }
+})
+
+/**
  * Get streaming statistics (for monitoring)
  *
  * GET /api/stream/stats

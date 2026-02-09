@@ -289,6 +289,9 @@ export const employeesApi = {
   delete: (token: string, id: string) =>
     api(`/employees/${id}`, { method: 'DELETE', token }),
 
+  history: (token: string, employeeId: string) =>
+    api<{ messages: Array<{ role: string; content: string; timestamp?: number }> }>(`/stream/employee/${employeeId}/history`, { token }),
+
   templates: (token: string) =>
     api<{ templates: EmployeeTemplate[] }>('/employees/templates', { token }),
 

@@ -101,12 +101,20 @@ export function Chat() {
     startStreaming,
   } = useChatStore()
 
-  // Initialize chat state
+  // Initialize chat state and load history from gateway
   useEffect(() => {
-    if (id) {
-      initChat(id)
-    }
-  }, [id, initChat])
+    if (!id) return
+    initChat(id)
+
+    if (!session?.accessToken) return
+    employeesApi.history(session.accessToken, id).then((res) => {
+      if (res.messages?.length) {
+        useChatStore.getState().loadHistory(id, res.messages)
+      }
+    }).catch((err) => {
+      console.error('[Chat] Failed to load history:', err)
+    })
+  }, [id, initChat, session?.accessToken])
 
   // Load employee data
   useEffect(() => {

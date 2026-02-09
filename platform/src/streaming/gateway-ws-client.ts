@@ -334,12 +334,12 @@ export class GatewayWSClient {
   /**
    * Get chat history for a session
    */
-  async getChatHistory(sessionKey: string, limit = 200): Promise<Array<{ role: string; content: string }>> {
+  async getChatHistory(sessionKey: string, limit = 200): Promise<Array<{ role: string; content: string; timestamp?: number }>> {
     if (!this.connected) {
       await this.connect()
     }
 
-    const response = await this.rpc<{ messages: Array<{ role: string; content: unknown }> }>('chat.history', {
+    const response = await this.rpc<{ messages: Array<{ role: string; content: unknown; timestamp?: number }> }>('chat.history', {
       sessionKey,
       limit,
     })
@@ -352,6 +352,7 @@ export class GatewayWSClient {
             .filter(p => p.type === 'text' || p.type === 'output_text')
             .map(p => p.text || '')
             .join(''),
+      timestamp: (msg as any).timestamp,
     }))
   }
 
