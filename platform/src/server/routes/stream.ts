@@ -187,6 +187,38 @@ streamRouter.post('/employee/:employeeId/chat', zValidator('json', streamChatSch
   }
 })
 
+// Schema for abort request
+const abortSchema = z.object({
+  runId: z.string().min(1),
+})
+
+/**
+ * Abort a streaming chat run
+ *
+ * POST /api/stream/employee/:employeeId/abort
+ *
+ * Sends an abort signal to the gateway for the given runId.
+ */
+streamRouter.post('/employee/:employeeId/abort', zValidator('json', abortSchema), async (c) => {
+  const tenantId = c.get('tenantId')
+  const employeeId = c.req.param('employeeId')
+  const { runId } = c.req.valid('json')
+
+  const access = await verifyEmployeeAccess(employeeId, tenantId)
+  if (!access) {
+    return c.json({ error: 'Employee not found' }, 404)
+  }
+
+  try {
+    const wsClient = await gatewayPool.getClient(tenantId)
+    await wsClient.abortChat(runId)
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('[Stream] Failed to abort chat:', error)
+    return c.json({ error: 'Failed to abort' }, 500)
+  }
+})
+
 /**
  * Get chat history for an employee (from clawdbot gateway)
  *

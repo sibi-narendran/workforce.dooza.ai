@@ -232,6 +232,24 @@ export async function sendStreamingChat(
 }
 
 /**
+ * Abort a streaming chat run (fire-and-forget)
+ */
+export async function abortStreamingChat(
+  token: string,
+  employeeId: string,
+  runId: string
+): Promise<void> {
+  await fetch(`${API_BASE}/stream/employee/${employeeId}/abort`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ runId }),
+  })
+}
+
+/**
  * Alternative: Send via conversations endpoint with stream=true
  */
 export async function sendStreamingChatAlt(

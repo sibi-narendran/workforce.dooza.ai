@@ -5,76 +5,49 @@ import { useAuthStore } from '../lib/store'
 import { WorkspaceButton, WorkspacePanel } from '../components/workspace'
 import { AgentAvatar, agentTagline } from '../components/AgentAvatar'
 import { RoutinesPanel } from '../components/RoutinesPanel'
-import { StreamingClient, sendStreamingChat } from '../lib/streaming'
+import { StreamingClient, sendStreamingChat, abortStreamingChat } from '../lib/streaming'
 import { useChatStore, useChatMessages, useStreamingContent, useIsStreaming } from '../lib/chat-store'
+import ReactMarkdown from 'react-markdown'
 
 /**
- * Detect Supabase Storage image URLs in message content and render them as <img> tags.
- * Strips markdown image syntax ![alt](url) and bare URLs alike.
- * Matches: ![...](https://{project}.supabase.co/.../media/....png) or bare URL
+ * Pre-process content before markdown rendering:
+ * - Strip JSON image-metadata artifacts the LLM sometimes echoes
  */
-function renderMessageContent(content: string) {
-  // Match markdown image syntax ![alt](url) first, then bare URL as fallback
-  const imagePattern = /!\[[^\]]*\]\((https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/media\/[^\s)]+\.(?:png|jpg|jpeg|webp|gif))\)|https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/media\/[^\s)]+\.(?:png|jpg|jpeg|webp|gif)/g
+function cleanContent(content: string): string {
+  return content.replace(/\{\s*"image"\s*:\s*"[^"]*"\s*\}/g, '')
+}
 
-  const parts: Array<{ type: 'text' | 'image'; value: string }> = []
-  let lastIndex = 0
-  let match: RegExpExecArray | null
+/** Custom img renderer for Supabase Storage images */
+const markdownComponents = {
+  img: ({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => (
+    <img
+      src={src}
+      alt={alt || 'Generated image'}
+      loading="lazy"
+      style={{
+        maxWidth: '100%',
+        borderRadius: 'var(--radius-md)',
+        margin: '8px 0',
+        display: 'block',
+      }}
+      {...props}
+    />
+  ),
+  // Open links in new tab
+  a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a href={href} target="_blank" rel="noreferrer noopener" {...props}>
+      {children}
+    </a>
+  ),
+}
 
-  while ((match = imagePattern.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ type: 'text', value: content.slice(lastIndex, match.index) })
-    }
-    // Group 1 has the URL from markdown syntax; full match for bare URLs
-    const url = match[1] || match[0]
-    parts.push({ type: 'image', value: url })
-    lastIndex = match.index + match[0].length
-  }
-
-  if (lastIndex < content.length) {
-    parts.push({ type: 'text', value: content.slice(lastIndex) })
-  }
-
-  // Clean text parts: strip JSON image-metadata artifacts the LLM sometimes echoes,
-  // then filter out parts that are empty after cleaning
-  const filtered = parts
-    .map((part) => {
-      if (part.type === 'image') return part
-      // Remove inline JSON artifacts like { "image": "Generated image" } (possibly multiline)
-      const cleaned = part.value.replace(/\{\s*"image"\s*:\s*"[^"]*"\s*\}/g, '')
-      return { ...part, value: cleaned }
-    })
-    .filter((part) => part.type === 'image' || part.value.trim().length > 0)
-
-  if (filtered.length === 0) {
-    return null
-  }
-
-  if (filtered.length === 1 && filtered[0].type === 'text') {
-    return <span style={{ whiteSpace: 'pre-wrap' }}>{content}</span>
-  }
-
+function MarkdownContent({ content }: { content: string }) {
+  const cleaned = cleanContent(content)
+  if (!cleaned.trim()) return null
   return (
-    <>
-      {filtered.map((part, i) =>
-        part.type === 'text' ? (
-          <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{part.value}</span>
-        ) : (
-          <img
-            key={i}
-            src={part.value}
-            alt="Generated image"
-            loading="lazy"
-            style={{
-              maxWidth: '100%',
-              borderRadius: 'var(--radius-md)',
-              margin: '8px 0',
-              display: 'block',
-            }}
-          />
-        )
-      )}
-    </>
+    <div className="chat-text">
+      <ReactMarkdown components={markdownComponents}>{cleaned}</ReactMarkdown>
+    </div>
   )
 }
 
@@ -191,11 +164,22 @@ export function Chat() {
   }, [messages, streamingContent])
 
   const handleSend = useCallback(async () => {
-    if (!input.trim() || isStreaming || !session?.accessToken || !id) return
+    if (!input.trim() || !session?.accessToken || !id) return
 
     const messageText = input.trim()
     setInput('')
     setLastError(null)
+
+    // If currently streaming, abort the active run first
+    const chatState = useChatStore.getState().chats[id]
+    if (chatState?.isStreaming && chatState.currentRunId) {
+      try {
+        await abortStreamingChat(session.accessToken, id, chatState.currentRunId)
+      } catch {
+        // best-effort — continue even if abort fails
+      }
+      useChatStore.getState().abortStreaming(id)
+    }
 
     // Add user message to store
     addUserMessage(id, messageText)
@@ -211,7 +195,7 @@ export function Chat() {
       setLastError(errorMsg)
       useChatStore.getState().setError(id, 'send-error', `Error: ${errorMsg}`)
     }
-  }, [input, isStreaming, session?.accessToken, id, addUserMessage, startStreaming])
+  }, [input, session?.accessToken, id, addUserMessage, startStreaming])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -362,7 +346,7 @@ export function Chat() {
                 >
                   <div style={{ lineHeight: 1.5 }}>
                     {msg.role === 'assistant'
-                      ? renderMessageContent(msg.content)
+                      ? <MarkdownContent content={msg.content} />
                       : <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>}
                   </div>
                   <div
@@ -399,7 +383,7 @@ export function Chat() {
                   }}
                 >
                   <div style={{ lineHeight: 1.5 }}>
-                    {renderMessageContent(streamingContent)}
+                    <MarkdownContent content={streamingContent} />
                     <span
                       style={{
                         display: 'inline-block',
@@ -479,10 +463,10 @@ export function Chat() {
           <button
             className="btn"
             onClick={handleSend}
-            disabled={!input.trim() || isStreaming}
+            disabled={!input.trim()}
             style={{ padding: '12px 20px' }}
           >
-            {isStreaming ? <div className="loading" style={{ width: 18, height: 18 }} /> : 'Send'}
+            Send
           </button>
         </div>
       </div>
