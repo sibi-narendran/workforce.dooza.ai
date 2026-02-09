@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",
     "build": "tsc",
+    "postbuild": "rm -rf dist/employees/agents && cp -r src/employees/agents dist/employees/agents && echo '[postbuild] Agent templates copied:' && ls dist/employees/agents",
     "start": "node dist/index.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

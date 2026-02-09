@@ -179,6 +179,8 @@ export async function syncAllAgentTemplates(): Promise<void> {
       const files = await syncAgentFilesForAllTenants(slug)
       totalFiles += files.synced
       allErrors.push(...files.errors)
+    } else {
+      console.error(`[Sync] MISSING template dir for "${slug}" — agent files will NOT be synced (expected at dist/employees/agents/${slug}/)`)
     }
 
     // Sync config (clawdbot.json tools/plugins)
