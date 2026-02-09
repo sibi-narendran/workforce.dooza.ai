@@ -54,16 +54,22 @@ export async function syncAgentConfigForAllTenants(agentSlug: string): Promise<{
     try {
       const config = await tenantManager.loadClawdbotConfig(tenantId)
 
-      // Find agent entry in agents.list
+      // Self-heal: initialize agents.list if missing (e.g. fresh Render disk)
       if (!config.agents.list) {
-        errors.push(`${tenantId}: no agents.list in config`)
-        continue
+        console.warn(`[Sync] ${tenantId}: agents.list missing, initializing`)
+        config.agents.list = []
       }
 
-      const agentIndex = config.agents.list.findIndex(a => a.id === agentSlug)
+      // Self-heal: add agent to list if installed in DB but missing from config
+      let agentIndex = config.agents.list.findIndex(a => a.id === agentSlug)
       if (agentIndex < 0) {
-        errors.push(`${tenantId}: agent ${agentSlug} not in agents.list`)
-        continue
+        console.warn(`[Sync] ${tenantId}: adding "${agentSlug}" to agents.list`)
+        config.agents.list.push({
+          id: agentSlug,
+          agentDir: tenantManager.getAgentDir(tenantId, agentSlug),
+          workspace: tenantManager.getAgentDir(tenantId, agentSlug),
+        })
+        agentIndex = config.agents.list.length - 1
       }
 
       // Fix agentDir / workspace to match current TENANT_DATA_DIR
@@ -95,6 +101,11 @@ export async function syncAgentConfigForAllTenants(agentSlug: string): Promise<{
       // Remove stale tenant-level tools.alsoAllow if present
       if (config.tools && 'alsoAllow' in config.tools) {
         delete (config.tools as Record<string, unknown>).alsoAllow
+      }
+
+      // Fix sandbox.workspaceRoot to match current TENANT_DATA_DIR
+      if (config.agents.defaults?.sandbox) {
+        config.agents.defaults.sandbox.workspaceRoot = tenantManager.getTenantDir(tenantId)
       }
 
       await tenantManager.saveClawdbotConfig(tenantId, config)
@@ -180,7 +191,7 @@ export async function syncAllAgentTemplates(): Promise<void> {
       totalFiles += files.synced
       allErrors.push(...files.errors)
     } else {
-      console.error(`[Sync] MISSING template dir for "${slug}" — agent files will NOT be synced (expected at dist/employees/agents/${slug}/)`)
+      console.log(`[Sync] Template "${slug}" has no files yet — skipping file sync`)
     }
 
     // Sync config (clawdbot.json tools/plugins)

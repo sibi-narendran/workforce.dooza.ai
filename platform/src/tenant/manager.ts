@@ -354,6 +354,7 @@ export class TenantManager {
             sources: ['memory'],
           },
         },
+        list: [],
       },
       // Internal hooks for session memory, audit logging, and startup tasks
       hooks: {
