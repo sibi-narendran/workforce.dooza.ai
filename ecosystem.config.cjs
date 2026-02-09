@@ -47,6 +47,25 @@ if (!fs.existsSync(TENANT_DATA_DIR)) {
   fs.mkdirSync(TENANT_DATA_DIR, { recursive: true })
 }
 
+// Ensure global gateway config exists (plugins must be enabled globally for gateway to load them)
+const openclawDir = path.join(os.homedir(), '.openclaw')
+const openclawConfigPath = path.join(openclawDir, 'openclaw.json')
+if (!fs.existsSync(openclawConfigPath)) {
+  fs.mkdirSync(openclawDir, { recursive: true })
+  fs.writeFileSync(openclawConfigPath, JSON.stringify({
+    plugins: {
+      enabled: true,
+      slots: { memory: 'memory-core' },
+      entries: {
+        'image-gen': { enabled: true },
+        'api-tools': { enabled: true },
+        'brand-assets': { enabled: true },
+      },
+    },
+  }, null, 2))
+  console.log('[ecosystem] Created global gateway config at', openclawConfigPath)
+}
+
 module.exports = {
   apps: [
     {
