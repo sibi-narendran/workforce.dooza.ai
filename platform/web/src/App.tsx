@@ -167,35 +167,29 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Parses hash fragment tokens deposited by accounts.dooza.ai redirect,
- * exchanges them for a workforce session, then clears the hash.
+ * Extract hash tokens ONCE at module load — before React mounts.
+ * This survives React.StrictMode's unmount/remount cycle in dev.
  */
-/**
- * Synchronously extract hash tokens if present.
- * Must run before first render so ProtectedRoute doesn't redirect.
- */
-function extractHashTokens(): { accessToken: string; refreshToken: string } | null {
+const _pendingTokens: { accessToken: string; refreshToken: string } | null = (() => {
   const hash = window.location.hash.substring(1)
   if (!hash) return null
   const params = new URLSearchParams(hash)
   const accessToken = params.get('access_token')
   const refreshToken = params.get('refresh_token')
   if (!accessToken || !refreshToken) return null
-  // Clear hash immediately to prevent re-processing
   window.history.replaceState(null, '', window.location.pathname + window.location.search)
   return { accessToken, refreshToken }
-}
+})()
 
 function useHashTokenExchange() {
-  const [tokens] = useState(extractHashTokens)
-  const [exchanging, setExchanging] = useState(!!tokens)
+  const [exchanging, setExchanging] = useState(!!_pendingTokens)
   const { setAuth } = useAuthStore()
 
   useEffect(() => {
-    if (!tokens) return
+    if (!_pendingTokens) return
 
     authApi
-      .exchange(tokens)
+      .exchange(_pendingTokens)
       .then((result: any) => {
         if (result.success && result.user && result.session) {
           setAuth(result.user, result.tenant, result.session)
@@ -207,7 +201,7 @@ function useHashTokenExchange() {
         window.location.href = `${ACCOUNTS_URL}/signin?product=workforce`
       })
       .finally(() => setExchanging(false))
-  }, [tokens, setAuth])
+  }, [setAuth])
 
   return exchanging
 }
