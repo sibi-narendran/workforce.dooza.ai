@@ -164,41 +164,63 @@ auth.post('/exchange', zValidator('json', exchangeSchema), async (c) => {
       tenant = tenantData
     } else {
       // First-time user — create tenant + profile
-      const displayName =
-        authUser.user_metadata?.first_name ||
-        authUser.email?.split('@')[0] ||
-        'User'
-      const companyName =
-        authUser.user_metadata?.first_name
-          ? `${authUser.user_metadata.first_name}'s Workspace`
-          : 'My Workspace'
+      // Use try/catch to handle race conditions (e.g. React StrictMode double-invoke)
+      try {
+        const displayName =
+          authUser.user_metadata?.first_name ||
+          authUser.email?.split('@')[0] ||
+          'User'
+        const companyName =
+          authUser.user_metadata?.first_name
+            ? `${authUser.user_metadata.first_name}'s Workspace`
+            : 'My Workspace'
 
-      const slug = companyName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
+        const slug = companyName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
 
-      const [newTenant] = await db
-        .insert(tenants)
-        .values({
-          name: companyName,
-          slug: `${slug}-${Date.now().toString(36)}`,
-          ownerId: authUser.id,
-          plan: 'free',
+        const [newTenant] = await db
+          .insert(tenants)
+          .values({
+            name: companyName,
+            slug: `${slug}-${Date.now().toString(36)}`,
+            ownerId: authUser.id,
+            plan: 'free',
+          })
+          .returning()
+
+        await db.insert(profiles).values({
+          id: authUser.id,
+          tenantId: newTenant.id,
+          role: 'owner',
+          displayName,
         })
-        .returning()
 
-      await db.insert(profiles).values({
-        id: authUser.id,
-        tenantId: newTenant.id,
-        role: 'owner',
-        displayName,
-      })
+        // Create tenant directory structure
+        await tenantManager.createTenant(newTenant.id, companyName)
 
-      // Create tenant directory structure
-      await tenantManager.createTenant(newTenant.id, companyName)
+        tenant = newTenant
+      } catch (insertError) {
+        // Race condition: another concurrent request already created the profile.
+        // Re-fetch the profile and tenant that were just created.
+        const [retryProfile] = await db
+          .select()
+          .from(profiles)
+          .where(eq(profiles.id, authUser.id))
+          .limit(1)
 
-      tenant = newTenant
+        if (retryProfile?.tenantId) {
+          const [retryTenant] = await db
+            .select()
+            .from(tenants)
+            .where(eq(tenants.id, retryProfile.tenantId))
+            .limit(1)
+          tenant = retryTenant
+        } else {
+          throw insertError
+        }
+      }
     }
 
     // Decode exp from the JWT for expiresAt

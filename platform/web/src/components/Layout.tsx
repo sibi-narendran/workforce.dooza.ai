@@ -1,9 +1,8 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useAuthStore, useThemeStore } from '../lib/store'
+import { useAuthStore } from '../lib/store'
 
 export function Layout() {
   const { user, tenant, clearAuth } = useAuthStore()
-  const { theme, toggleTheme } = useThemeStore()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -52,6 +51,32 @@ export function Layout() {
             </NavItem>
           </nav>
 
+          {/* CTA */}
+          <div style={{
+            padding: '16px 12px',
+            marginBottom: 8,
+            background: 'linear-gradient(135deg, var(--primary-50), var(--primary-100))',
+            border: '1px solid var(--primary-200)',
+            borderRadius: 'var(--radius-lg)',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 4 }}>
+              Free Setup &amp; Custom Agents
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 12 }}>
+              We'll build your first AI employee for free
+            </div>
+            <a
+              href="https://cal.com/sibinarendran/demo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary"
+              style={{ width: '100%', fontSize: 13, padding: '8px 12px', textDecoration: 'none' }}
+            >
+              Book Free Setup Call
+            </a>
+          </div>
+
           {/* User section */}
           <div className="sidebar__user">
             <div className="user-menu">
@@ -68,13 +93,6 @@ export function Layout() {
               </div>
 
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                <button
-                  className="btn btn-ghost"
-                  onClick={toggleTheme}
-                  style={{ flex: 1, padding: '8px 12px', fontSize: 13 }}
-                >
-                  {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-                </button>
                 <button
                   className="btn btn-ghost"
                   onClick={handleLogout}

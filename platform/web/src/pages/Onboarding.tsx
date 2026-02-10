@@ -8,17 +8,13 @@ import './Onboarding.css'
 
 type Step = 'url-input' | 'scanning' | 'brand-review'
 
-function avatarUrl(seed: string) {
-  return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(seed)}&radius=50&backgroundColor=ccfbf1,99f6e4,5eead4,fde68a,c4b5fd,fca5a5`
-}
-
 const CAROUSEL_CARDS = [
-  { seed: 'somi-onboard',   humanName: 'Somi',    role: 'Social Media Manager', line: 'I post on your socials every day. You sleep, I grow your audience.' },
-  { seed: 'leo-sales',      humanName: 'Leo',     role: 'Sales Responder',      line: 'Every sales lead gets a reply in seconds. I never miss one.' },
-  { seed: 'nora-calendar',  humanName: 'Nora',    role: 'Calendar Assistant',   line: 'Your calendar runs itself. I book, reschedule, and protect your focus time.' },
-  { seed: 'mika-video',     humanName: 'Mika',    role: 'Video Editor',         line: 'I turn your ideas into short videos and post them before lunch.' },
-  { seed: 'ranky-seo',      humanName: 'Ranky',   role: 'SEO Specialist',       line: 'I analyze your competitors and put you on page one.' },
-  { seed: 'ella-writer',    humanName: 'Ella',    role: 'Content Writer',       line: 'Blog posts, emails, landing pages — I write them all in your brand voice.' },
+  { img: '/avatars/somi.png',   humanName: 'Somi',    role: 'Social Media Manager', line: 'I post on your socials every day. You sleep, I grow your audience.' },
+  { img: '/avatars/hunter.png', humanName: 'Hunter',  role: 'Sales & Outreach',     line: 'Every lead gets a reply in seconds. I do outreach and convert them for you.' },
+  { img: '/avatars/reema.png',  humanName: 'Reema',   role: 'Short-Form Video',     line: 'I generate short-form videos for your brand and post them before lunch.' },
+  { img: '/avatars/ranky.png',  humanName: 'Ranky',   role: 'SEO Specialist',       line: 'I analyze your competitors and put you on page one.' },
+  { img: '/avatars/linky.png',  humanName: 'Linky',   role: 'LinkedIn Specialist',  line: 'I grow your LinkedIn while you focus on closing deals.' },
+  { img: '/avatars/utumy.png',  humanName: 'Utumy',   role: 'YouTube Specialist',   line: 'I plan, script, and schedule your YouTube — completely hands-free.' },
 ]
 
 const CAROUSEL_INTERVAL_MS = 4500
@@ -74,8 +70,8 @@ export function Onboarding() {
   // Preload all carousel avatars on mount so they're instant when scanning starts
   useEffect(() => {
     CAROUSEL_CARDS.forEach(card => {
-      const img = new Image()
-      img.src = avatarUrl(card.seed)
+      const preload = new Image()
+      preload.src = card.img
     })
   }, [])
 
@@ -239,7 +235,7 @@ function ScanningStep({
           className={`carousel-card carousel-card--${cardState}`}
         >
           <img
-            src={avatarUrl(card.seed)}
+            src={card.img}
             alt={card.humanName}
             className="agent-avatar"
           />

@@ -35,7 +35,7 @@ export function AgentAvatar({
   const [useFallback, setUseFallback] = useState(false)
 
   const customUrl = `/avatars/${slug}.png`
-  const dicebearUrl = `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(slug)}&radius=12&backgroundColor=ccfbf1,99f6e4,5eead4`
+  const dicebearUrl = `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(slug)}&radius=12&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`
 
   return (
     <img

@@ -103,34 +103,3 @@ export const useAuthStore = create<AuthState>()(
   )
 )
 
-// Theme store
-interface ThemeState {
-  theme: 'dark' | 'light'
-  setTheme: (theme: 'dark' | 'light') => void
-  toggleTheme: () => void
-}
-
-export const useThemeStore = create<ThemeState>()(
-  persist(
-    (set, get) => ({
-      theme: 'light',
-      setTheme: (theme) => {
-        document.documentElement.setAttribute('data-theme', theme)
-        set({ theme })
-      },
-      toggleTheme: () => {
-        const newTheme = get().theme === 'dark' ? 'light' : 'dark'
-        document.documentElement.setAttribute('data-theme', newTheme)
-        set({ theme: newTheme })
-      },
-    }),
-    {
-      name: 'workforce-theme',
-      onRehydrateStorage: () => (state) => {
-        if (state?.theme) {
-          document.documentElement.setAttribute('data-theme', state.theme)
-        }
-      },
-    }
-  )
-)

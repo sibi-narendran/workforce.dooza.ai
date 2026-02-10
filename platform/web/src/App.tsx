@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { useAuthStore } from './lib/store'
@@ -185,13 +185,16 @@ const _pendingTokens: { accessToken: string; refreshToken: string } | null = (()
 function useHashTokenExchange() {
   const [exchanging, setExchanging] = useState(!!_pendingTokens)
   const { setAuth } = useAuthStore()
+  const cancelled = useRef(false)
 
   useEffect(() => {
     if (!_pendingTokens) return
+    cancelled.current = false
 
     authApi
       .exchange(_pendingTokens)
       .then((result: any) => {
+        if (cancelled.current) return
         if (result.success && result.user && result.session) {
           setAuth(result.user, result.tenant, result.session)
         } else {
@@ -199,9 +202,14 @@ function useHashTokenExchange() {
         }
       })
       .catch(() => {
+        if (cancelled.current) return
         window.location.href = `${ACCOUNTS_URL}/signin?product=workforce`
       })
-      .finally(() => setExchanging(false))
+      .finally(() => {
+        if (!cancelled.current) setExchanging(false)
+      })
+
+    return () => { cancelled.current = true }
   }, [setAuth])
 
   return exchanging
