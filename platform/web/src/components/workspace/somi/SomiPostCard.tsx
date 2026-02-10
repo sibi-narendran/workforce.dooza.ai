@@ -9,12 +9,14 @@ const platformIcons: Record<Platform, string> = {
   instagram: 'IG',
   linkedin: 'in',
   facebook: 'f',
+  youtube: 'YT',
 }
 
 const platformColors: Record<Platform, string> = {
   instagram: '#E4405F',
   linkedin: '#0A66C2',
   facebook: '#1877F2',
+  youtube: '#FF0000',
 }
 
 export function SomiPostCard({ post, onClick }: SomiPostCardProps) {

@@ -1,0 +1,27 @@
+name: get_current_time
+description: Get the current date and time in UTC. Call this before scheduling posts to correctly interpret relative dates like "tomorrow" or "next Tuesday".
+
+parameters: {}
+
+request:
+  method: POST
+  url: "{{env.SUPABASE_URL}}/rest/v1/rpc/get_current_time"
+  headers:
+    apikey: "{{env.SUPABASE_SERVICE_KEY}}"
+    Authorization: "Bearer {{env.SUPABASE_SERVICE_KEY}}"
+    Content-Type: "application/json"
+  body:
+    type: json
+    content: {}
+  timeout_ms: 5000
+
+response:
+  summary: "Current time: {{response.utc_now}} ({{response.day_of_week}})"
+  error_template: "Failed to get current time: {{response.message}}"
+
+requires_env:
+  - SUPABASE_URL
+  - SUPABASE_SERVICE_KEY
+
+allowed_hosts:
+  - "*.supabase.co"

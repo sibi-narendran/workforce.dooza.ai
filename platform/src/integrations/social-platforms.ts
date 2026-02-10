@@ -28,6 +28,22 @@ interface SocialPlatformConfig {
 }
 
 const SOCIAL_PLATFORMS: Record<string, SocialPlatformConfig> = {
+  youtube: {
+    providerSlug: 'youtube',
+    steps: [
+      {
+        action: 'YOUTUBE_UPLOAD_VIDEO',
+        buildParams: (p) => ({
+          title: p.title || p.content.slice(0, 100),
+          description: p.content,
+          ...(p.imageUrl ? { thumbnail_url: p.imageUrl } : {}),
+        }),
+      },
+    ],
+    maxContentLength: 5000,
+    requiresImage: false,
+    validate: () => null,
+  },
   linkedin: {
     providerSlug: 'linkedin',
     steps: [

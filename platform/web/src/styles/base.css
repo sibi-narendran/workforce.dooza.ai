@@ -848,7 +848,7 @@ button, input, textarea, select {
   line-height: 1.5;
   resize: none;
   outline: none;
-  min-height: 24px;
+  min-height: 140px;
   max-height: 200px;
   color: var(--gray-900);
 }

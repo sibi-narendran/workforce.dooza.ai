@@ -9,6 +9,7 @@ export const platformColors: Record<Platform, string> = {
   instagram: '#E4405F',
   linkedin: '#0A66C2',
   facebook: '#1877F2',
+  youtube: '#FF0000',
 }
 
 function InstagramIcon({ size }: { size: number }) {
@@ -35,10 +36,19 @@ function FacebookIcon({ size }: { size: number }) {
   )
 }
 
+function YouTubeIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="white">
+      <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.9 31.9 0 0 0 0 12a31.9 31.9 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.5 15.6V8.4l6.3 3.6-6.3 3.6z" />
+    </svg>
+  )
+}
+
 const icons: Record<Platform, ({ size }: { size: number }) => JSX.Element> = {
   instagram: InstagramIcon,
   linkedin: LinkedInIcon,
   facebook: FacebookIcon,
+  youtube: YouTubeIcon,
 }
 
 export function PlatformIcon({ platform, size = 16 }: PlatformIconProps) {

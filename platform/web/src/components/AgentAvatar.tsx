@@ -2,7 +2,9 @@ import { useState } from 'react'
 
 /** Short role taglines shown under the agent name instead of raw slugs */
 const TAGLINES: Record<string, string> = {
+  utumy: 'YouTube Content Specialist',
   somi: 'Social Media Specialist',
+  linky: 'LinkedIn Specialist',
   researcher: 'Research Assistant',
   writer: 'Content Writer',
   'data-analyst': 'Data Analyst',

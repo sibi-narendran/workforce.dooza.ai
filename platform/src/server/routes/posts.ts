@@ -10,7 +10,7 @@ const postsRouter = new Hono()
 
 const createPostSchema = z.object({
   agentSlug: z.string().max(100).optional(),
-  platform: z.enum(['instagram', 'facebook', 'linkedin']),
+  platform: z.enum(['instagram', 'facebook', 'linkedin', 'youtube']),
   title: z.string().max(200).optional(),
   content: z.string().min(1),
   imageUrl: z.string().url().optional(),
@@ -20,7 +20,7 @@ const createPostSchema = z.object({
 })
 
 const updatePostSchema = z.object({
-  platform: z.enum(['instagram', 'facebook', 'linkedin']).optional(),
+  platform: z.enum(['instagram', 'facebook', 'linkedin', 'youtube']).optional(),
   title: z.string().max(200).optional(),
   content: z.string().min(1).optional(),
   imageUrl: z.string().url().nullable().optional(),

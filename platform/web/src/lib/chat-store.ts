@@ -145,7 +145,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           ...state.chats,
           [employeeId]: {
             ...chat,
-            streamingContent: chat.streamingContent + token,
+            streamingContent: token,
           },
         },
       }

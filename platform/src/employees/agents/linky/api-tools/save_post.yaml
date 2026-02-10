@@ -1,0 +1,50 @@
+name: save_post
+description: Save a LinkedIn post to the content calendar
+
+parameters:
+  content:
+    type: string
+    description: "Post caption/body text"
+    required: true
+  title:
+    type: string
+    description: "Short title for calendar display"
+  image_url:
+    type: string
+    description: "Public URL of image (from generate_image)"
+  scheduled_date:
+    type: string
+    description: "ISO 8601 date/time, e.g. 2026-02-14T10:00:00Z"
+    required: true
+
+request:
+  method: POST
+  url: "{{env.SUPABASE_URL}}/rest/v1/posts"
+  headers:
+    apikey: "{{env.SUPABASE_SERVICE_KEY}}"
+    Authorization: "Bearer {{env.SUPABASE_SERVICE_KEY}}"
+    Content-Type: "application/json"
+    Prefer: "return=representation"
+  body:
+    type: json
+    content:
+      tenant_id: "{{env.TENANT_ID}}"
+      agent_slug: "linky"
+      platform: "linkedin"
+      title: "{{params.title}}"
+      content: "{{params.content}}"
+      image_url: "{{params.image_url}}"
+      scheduled_date: "{{params.scheduled_date}}"
+      status: "draft"
+  timeout_ms: 10000
+
+response:
+  summary: "Post saved to calendar (LinkedIn on {{response.scheduled_date}})"
+  error_template: "Failed to save post: {{response.message}}"
+
+requires_env:
+  - SUPABASE_URL
+  - SUPABASE_SERVICE_KEY
+
+allowed_hosts:
+  - "*.supabase.co"

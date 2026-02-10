@@ -5,6 +5,9 @@ import type { Employee } from '../../lib/api'
 const SomiWorkspace = lazy(() =>
   import('./somi/SomiWorkspace').then((m) => ({ default: m.SomiWorkspace }))
 )
+const UtumyWorkspace = lazy(() =>
+  import('./utumy/UtumyWorkspace').then((m) => ({ default: m.UtumyWorkspace }))
+)
 const GenericWorkspace = lazy(() =>
   import('./generic/GenericWorkspace').then((m) => ({ default: m.GenericWorkspace }))
 )
@@ -13,7 +16,8 @@ type WorkspaceComponent = ComponentType<{ employee: Employee | null }>
 
 const registry: Record<string, WorkspaceComponent> = {
   somi: SomiWorkspace,
-  // Add more agent-specific workspaces here
+  linky: SomiWorkspace,
+  utumy: UtumyWorkspace,
 }
 
 export function getWorkspace(slug: string | null): WorkspaceComponent {

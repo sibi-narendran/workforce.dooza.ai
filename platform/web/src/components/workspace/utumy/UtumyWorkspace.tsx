@@ -1,16 +1,15 @@
 import { useState, useMemo, useEffect } from 'react'
-import ReactMarkdown from 'react-markdown'
 import type { Employee } from '../../../lib/api'
 import { integrationsApi } from '../../../lib/api'
 import { useAuthStore } from '../../../lib/store'
 import { usePosts, useCreatePost, useDeletePost, useApprovePost } from '../../../lib/queries'
-import type { ScheduledPost, Platform } from './somi.types'
-import { SomiCalendar } from './SomiCalendar'
-import { SomiPostList } from './SomiPostList'
+import type { ScheduledPost, Platform } from '../somi/somi.types'
+import { SomiCalendar } from '../somi/SomiCalendar'
+import { SomiPostList } from '../somi/SomiPostList'
 
 type StatusTab = 'scheduled' | 'approved'
 
-interface SomiWorkspaceProps {
+interface UtumyWorkspaceProps {
   employee: Employee | null
 }
 
@@ -34,8 +33,8 @@ function formatMonth(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
 
-export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
-  const agentSlug = employee?.type ?? 'somi'
+export function UtumyWorkspace({ employee }: UtumyWorkspaceProps) {
+  const agentSlug = employee?.type ?? 'utumy'
   const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null)
   const [selectedDayPosts, setSelectedDayPosts] = useState<ScheduledPost[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
@@ -46,7 +45,6 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
   const [copied, setCopied] = useState(false)
   const session = useAuthStore((s) => s.session)
 
-  // The 14-day window may span 2 months — compute which months to fetch
   const monthsToFetch = useMemo(() => {
     const endDate = new Date(startDate)
     endDate.setDate(endDate.getDate() + 13)
@@ -102,13 +100,13 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
     }
   }
 
-  const handleCreatePost = async (title: string, content: string, platform: Platform, imageUrl: string) => {
+  const handleCreatePost = async (title: string, content: string, imageUrl: string) => {
     if (!selectedDate || !session?.accessToken || !employee) return
 
     try {
       await createPost.mutateAsync({
         agentSlug,
-        platform,
+        platform: 'youtube' as Platform,
         title: title || undefined,
         content,
         imageUrl: imageUrl || undefined,
@@ -174,7 +172,7 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
   return (
     <div className="somi-workspace">
       <div className="somi-workspace__header">
-        <h3>Content Calendar</h3>
+        <h3>YouTube Content Calendar</h3>
       </div>
 
       <div className="somi-tabs">
@@ -205,12 +203,12 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
 
       <SomiPostList posts={filteredPosts} onSelectPost={handleSelectPost} />
 
-      {/* Add Post Modal */}
+      {/* Add Post Modal — YouTube only */}
       {showAddModal && (
         <div className="somi-modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="somi-modal" onClick={(e) => e.stopPropagation()}>
             <div className="somi-modal__header">
-              <h4>Schedule Post</h4>
+              <h4>Schedule YouTube Video</h4>
               <button
                 className="btn btn-ghost"
                 onClick={() => setShowAddModal(false)}
@@ -230,40 +228,31 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
                   const form = e.target as HTMLFormElement
                   const title = (form.elements.namedItem('title') as HTMLInputElement).value
                   const content = (form.elements.namedItem('content') as HTMLTextAreaElement).value
-                  const platform = (form.elements.namedItem('platform') as HTMLSelectElement).value as Platform
                   const imageUrl = (form.elements.namedItem('imageUrl') as HTMLInputElement).value
-                  handleCreatePost(title, content, platform, imageUrl)
+                  handleCreatePost(title, content, imageUrl)
                 }}
               >
                 <div className="form-group">
-                  <label className="form-label">Title</label>
+                  <label className="form-label">Video Title</label>
                   <input
                     name="title"
                     className="input"
-                    placeholder="Short title for calendar"
+                    placeholder="YouTube video title"
                   />
                 </div>
                 <div className="form-group" style={{ marginTop: 12 }}>
-                  <label className="form-label">Content</label>
+                  <label className="form-label">Description</label>
                   <textarea
                     name="content"
                     className="input"
-                    placeholder="Post caption / body text"
+                    placeholder="Video description"
                     required
                     rows={4}
                     style={{ resize: 'vertical' }}
                   />
                 </div>
                 <div className="form-group" style={{ marginTop: 12 }}>
-                  <label className="form-label">Platform</label>
-                  <select name="platform" className="input">
-                    <option value="instagram">Instagram</option>
-                    <option value="facebook">Facebook</option>
-                    <option value="linkedin">LinkedIn</option>
-                  </select>
-                </div>
-                <div className="form-group" style={{ marginTop: 12 }}>
-                  <label className="form-label">Image URL (optional)</label>
+                  <label className="form-label">Thumbnail URL (optional)</label>
                   <input
                     name="imageUrl"
                     className="input"
@@ -272,7 +261,7 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
                   />
                 </div>
                 <button type="submit" className="btn btn-primary" style={{ marginTop: 16, width: '100%' }}>
-                  Create Post
+                  Create Video Plan
                 </button>
               </form>
             </div>
@@ -343,14 +332,12 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
                   minute: '2-digit',
                 })}
               </p>
-              <div style={{ marginBottom: 16 }} className="post-content-rendered">
-                <ReactMarkdown>{selectedPost.content}</ReactMarkdown>
-              </div>
+              <p style={{ marginBottom: 16, whiteSpace: 'pre-wrap' }}>{selectedPost.content}</p>
               {selectedPost.imageUrl && (
                 <div style={{ marginBottom: 16 }}>
                   <img
                     src={selectedPost.imageUrl}
-                    alt="Post image"
+                    alt="Thumbnail"
                     style={{ maxWidth: '100%', borderRadius: 8, maxHeight: 200, objectFit: 'cover' }}
                   />
                 </div>
@@ -368,16 +355,7 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
                 <button
                   className="btn btn-ghost"
                   onClick={() => {
-                    // Convert markdown bold to HTML, newlines to <br>
-                    const html = selectedPost.content
-                      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                      .replace(/\n/g, '<br>')
-                    const plain = selectedPost.content.replace(/\*\*(.+?)\*\*/g, '$1')
-                    const blob = new Blob([html], { type: 'text/html' })
-                    const blobPlain = new Blob([plain], { type: 'text/plain' })
-                    navigator.clipboard.write([
-                      new ClipboardItem({ 'text/html': blob, 'text/plain': blobPlain }),
-                    ])
+                    navigator.clipboard.writeText(selectedPost.content)
                     setCopied(true)
                     setTimeout(() => setCopied(false), 2000)
                   }}
@@ -394,7 +372,7 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
                           const url = URL.createObjectURL(blob)
                           const a = document.createElement('a')
                           a.href = url
-                          a.download = `${agentSlug}-${selectedPost.platform}-${selectedPost.id}.jpg`
+                          a.download = `utumy-${selectedPost.platform}-${selectedPost.id}.jpg`
                           document.body.appendChild(a)
                           a.click()
                           document.body.removeChild(a)
@@ -402,7 +380,7 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
                         })
                     }}
                   >
-                    Download Image
+                    Download Thumbnail
                   </button>
                 )}
                 <button
@@ -433,7 +411,7 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
             </div>
             <div className="somi-modal__body">
               <p style={{ marginBottom: 16 }}>
-                Connect your {connectionPrompt.platform} account to approve and auto-publish posts.
+                Connect your {connectionPrompt.platform} account to approve and auto-publish videos.
               </p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary" onClick={handleConnectPlatform}>
