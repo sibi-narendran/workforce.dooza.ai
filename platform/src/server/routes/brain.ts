@@ -128,7 +128,7 @@ async function downloadAndStoreLogo(
 ): Promise<string | null> {
   try {
     const response = await fetch(logoUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorkforceBot/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
       signal: AbortSignal.timeout(10000),
     })
 
@@ -171,19 +171,20 @@ brainRouter.post('/extract', zValidator('json', extractSchema), async (c) => {
     // Fetch the URL
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; WorkforceBot/1.0; +https://workforce.dooza.ai)',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
       signal: AbortSignal.timeout(15000),
     })
 
     if (!response.ok) {
+      console.warn(`[Brain] Fetch failed for ${url}: ${response.status} ${response.statusText}`)
       return c.json({
-        success: false,
+        success: true,
         url,
-        extracted: createEmptyExtracted(),
-        error: `Failed to fetch URL: ${response.status} ${response.statusText}`,
-      }, 400)
+        extracted: { ...createEmptyExtracted(), website: url },
+        warning: `Could not fetch website (${response.status}) — you can fill in brand details manually`,
+      })
     }
 
     const html = await response.text()
@@ -242,18 +243,14 @@ brainRouter.post('/extract', zValidator('json', extractSchema), async (c) => {
       extracted,
     })
   } catch (error) {
-    console.error('[Brain] Extraction error:', error)
-
-    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.warn('[Brain] Extraction error (non-fatal):', error)
 
     return c.json({
-      success: false,
+      success: true,
       url,
-      extracted: createEmptyExtracted(),
-      error: message.includes('timeout')
-        ? 'Request timed out - the website may be slow or unavailable'
-        : `Failed to extract brand info: ${message}`,
-    }, 500)
+      extracted: { ...createEmptyExtracted(), website: url },
+      warning: 'Could not extract brand info — you can fill in details manually',
+    })
   }
 })
 

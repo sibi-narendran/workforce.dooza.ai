@@ -121,12 +121,6 @@ export function Onboarding() {
         ]),
       ]) as [unknown, BrandExtractResponse]
 
-      if (!result.success) {
-        setError(result.error || 'Could not extract brand info. Please try again.')
-        setStep('url-input')
-        return
-      }
-
       const mapped = mapExtractedToBrand(result.extracted, normalizedUrl)
       setBrand(mapped)
 
@@ -145,9 +139,15 @@ export function Onboarding() {
       }
 
       setStep('brand-review')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
-      setStep('url-input')
+    } catch {
+      // Network failure or timeout — proceed with empty brand so user isn't stuck
+      const fallback = mapExtractedToBrand({
+        business_name: null, website: normalizedUrl, tagline: null,
+        colors: null, social_links: null, description: null,
+        value_proposition: null, target_audience: null, industry: null, logo_url: null,
+      }, normalizedUrl)
+      setBrand(fallback)
+      setStep('brand-review')
     }
   }, [url, token, queryClient])
 
@@ -261,31 +261,44 @@ function BrandReviewStep({
 }) {
   if (!brand) return null
 
+  const hasData = !!(brand.businessName || brand.description || brand.industry)
+
   return (
     <div className="onboarding-section">
-      <h1>Here's what we found</h1>
-      <p className="subtitle">We extracted your brand identity from your website</p>
+      {hasData ? (
+        <>
+          <h1>Here's what we found</h1>
+          <p className="subtitle">We extracted your brand identity from your website</p>
+        </>
+      ) : (
+        <>
+          <h1>You're all set!</h1>
+          <p className="subtitle">We couldn't read your site this time, but that's okay — your AI team is ready to go</p>
+        </>
+      )}
 
-      <div className="brand-card">
-        <div className="card">
-          {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="brand-logo" />
-          ) : (
-            <div className="brand-logo-placeholder">
-              {brand.businessName?.[0]?.toUpperCase() || '?'}
+      {hasData && (
+        <div className="brand-card">
+          <div className="card">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="brand-logo" />
+            ) : (
+              <div className="brand-logo-placeholder">
+                {brand.businessName?.[0]?.toUpperCase() || '?'}
+              </div>
+            )}
+            <div className="brand-info">
+              <h3>{brand.businessName || brand.website || 'Your Business'}</h3>
+              {brand.industry && (
+                <span className="badge badge-primary">{brand.industry}</span>
+              )}
+              {brand.description && (
+                <p className="brand-description">{brand.description}</p>
+              )}
             </div>
-          )}
-          <div className="brand-info">
-            <h3>{brand.businessName || brand.website || 'Your Business'}</h3>
-            {brand.industry && (
-              <span className="badge badge-primary">{brand.industry}</span>
-            )}
-            {brand.description && (
-              <p className="brand-description">{brand.description}</p>
-            )}
           </div>
         </div>
-      </div>
+      )}
 
       <div className="onboarding-actions">
         <button className="btn btn-primary" onClick={onGetStarted}>
