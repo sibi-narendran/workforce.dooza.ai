@@ -11,6 +11,7 @@ const TAGLINES: Record<string, string> = {
   'customer-support': 'Support Agent',
   'code-reviewer': 'Code Reviewer',
   'project-manager': 'Project Coordinator',
+  ranky: 'SEO Specialist',
 }
 
 export function agentTagline(slug: string): string {

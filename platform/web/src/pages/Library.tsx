@@ -26,7 +26,7 @@ export function Library() {
 
     try {
       await installAgent.mutateAsync({ agentId: agent.id })
-      setSuccess(`${agent.name} installed! Go to Employees to chat.`)
+      setSuccess(`${agent.name} hired! Go to Employees to chat.`)
     } catch (err) {
       setLocalError(getErrorMessage(err))
     } finally {
@@ -219,11 +219,11 @@ function AgentCard({
           {installing ? (
             <div className="loading" style={{ width: 16, height: 16 }} />
           ) : isInstalled ? (
-            'Installed'
+            'Hired'
           ) : isLoggedIn ? (
-            '+ Install'
+            'Hire'
           ) : (
-            'Login to Install'
+            'Login to Hire'
           )}
         </button>
       </div>

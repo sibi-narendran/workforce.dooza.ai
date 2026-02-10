@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { useAuthStore } from './lib/store'
 import { validateSession } from './lib/auth-interceptor'
 import { Layout } from './components/Layout'
@@ -12,7 +12,8 @@ import { Chat } from './pages/Chat'
 import { Library } from './pages/Library'
 import { Integrations } from './pages/Integrations'
 import { Brain } from './pages/Brain'
-import { authApi } from './lib/api'
+import { Onboarding } from './pages/Onboarding'
+import { authApi, brainApi } from './lib/api'
 import {
   QUERY_STALE_TIME_MS,
   QUERY_GC_TIME_MS,
@@ -206,6 +207,34 @@ function useHashTokenExchange() {
   return exchanging
 }
 
+/**
+ * Redirects new users (no brand data) to /onboarding.
+ * Existing users pass through after a single cached check.
+ */
+function OnboardingGate({ children }: { children: React.ReactNode }) {
+  const { session } = useAuthStore()
+  const { data, isLoading } = useQuery({
+    queryKey: ['brand-check'],
+    queryFn: () => brainApi.getBrand(session!.accessToken),
+    enabled: !!session?.accessToken,
+    staleTime: 5 * 60_000,
+  })
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div className="loading" />
+      </div>
+    )
+  }
+
+  if (!data?.brand) {
+    return <Navigate to="/onboarding" replace />
+  }
+
+  return <>{children}</>
+}
+
 export function App() {
   const exchanging = useHashTokenExchange()
 
@@ -223,11 +252,17 @@ export function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
 
+          {/* Onboarding — no sidebar, no nav */}
+          <Route path="/onboarding" element={
+            <ProtectedRoute><Onboarding /></ProtectedRoute>
+          } />
+
+          {/* Main app — with layout */}
           <Route
             path="/"
             element={
               <ProtectedRoute>
-                <Layout />
+                <OnboardingGate><Layout /></OnboardingGate>
               </ProtectedRoute>
             }
           >
