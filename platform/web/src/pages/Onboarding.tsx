@@ -132,7 +132,7 @@ export function Onboarding() {
 
       // Save brand to DB immediately
       await brainApi.saveBrand(token, mapped as Partial<Omit<BrainBrand, 'id' | 'tenantId' | 'createdAt' | 'updatedAt'>>)
-      queryClient.invalidateQueries({ queryKey: ['brand-check'] })
+      queryClient.setQueryData(['brand-check'], { brand: mapped })
 
       // Fetch signed logo URL if there's a logo
       if (mapped.logoUrl) {
