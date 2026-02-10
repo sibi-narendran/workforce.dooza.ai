@@ -1,4 +1,4 @@
-export type Platform = 'youtube' | 'instagram' | 'facebook' | 'linkedin' | 'tiktok'
+export type Platform = 'instagram' | 'facebook' | 'linkedin'
 
 export type PostStatus = 'draft' | 'scheduled' | 'published' | 'failed'
 

@@ -9,7 +9,7 @@ parameters:
   platform:
     type: string
     description: "Filter by platform"
-    enum: ["youtube", "instagram", "facebook", "linkedin", "tiktok"]
+    enum: ["instagram", "facebook", "linkedin"]
   upcoming_only:
     type: string
     description: "Only show future posts (default 'true'). Set to 'false' to include past posts."

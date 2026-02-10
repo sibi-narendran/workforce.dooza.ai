@@ -5,7 +5,7 @@ parameters:
   platform:
     type: string
     description: "Target platform"
-    enum: ["youtube", "instagram", "facebook", "linkedin", "tiktok"]
+    enum: ["instagram", "facebook", "linkedin"]
     required: true
   content:
     type: string

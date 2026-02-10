@@ -5,8 +5,7 @@ Skills define *how* tools work. This file is for environment-specific notes.
 ## Platform APIs
 
 - Meta Graph API (Facebook + Instagram)
-- YouTube Data API
-- TikTok Content Publishing API
+- LinkedIn API
 
 OAuth tokens stored per-tenant.
 
@@ -33,7 +32,7 @@ Optional filters: `status`, `platform`, `upcoming_only` ("true"/"false"), `month
 Use the `save_post` tool to save posts to the content calendar. It writes directly to the
 `posts` table via the Supabase REST API. **Posts cannot be scheduled in the past** — the database will reject them. Parameters:
 
-- `platform` — youtube, instagram, facebook, linkedin, tiktok
+- `platform` — instagram, facebook, linkedin
 - `content` — post caption/body text (required)
 - `title` — short title for calendar display
 - `image_url` — public URL from generate_image

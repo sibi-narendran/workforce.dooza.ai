@@ -6,19 +6,9 @@ interface PlatformIconProps {
 }
 
 export const platformColors: Record<Platform, string> = {
-  youtube: '#FF0000',
   instagram: '#E4405F',
   linkedin: '#0A66C2',
   facebook: '#1877F2',
-  tiktok: '#000000',
-}
-
-function YouTubeIcon({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="white">
-      <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.3 31.3 0 0 0 0 12a31.3 31.3 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.3 31.3 0 0 0 24 12a31.3 31.3 0 0 0-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z" />
-    </svg>
-  )
 }
 
 function InstagramIcon({ size }: { size: number }) {
@@ -45,20 +35,10 @@ function FacebookIcon({ size }: { size: number }) {
   )
 }
 
-function TikTokIcon({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="white">
-      <path d="M19.3 5.4A4.9 4.9 0 0 1 16.2 2h-3.5v13.7a2.9 2.9 0 0 1-2.9 2.7 2.9 2.9 0 0 1-2.9-2.9 2.9 2.9 0 0 1 2.9-2.9c.3 0 .6 0 .9.1V9.1a6.5 6.5 0 0 0-.9-.1 6.5 6.5 0 0 0-6.5 6.5A6.5 6.5 0 0 0 9.8 22a6.5 6.5 0 0 0 6.5-6.5V8.2a8.4 8.4 0 0 0 4.9 1.6V6.3a4.9 4.9 0 0 1-1.9-.9z" />
-    </svg>
-  )
-}
-
 const icons: Record<Platform, ({ size }: { size: number }) => JSX.Element> = {
-  youtube: YouTubeIcon,
   instagram: InstagramIcon,
   linkedin: LinkedInIcon,
   facebook: FacebookIcon,
-  tiktok: TikTokIcon,
 }
 
 export function PlatformIcon({ platform, size = 16 }: PlatformIconProps) {

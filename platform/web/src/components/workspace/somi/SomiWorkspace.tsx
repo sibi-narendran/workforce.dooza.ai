@@ -255,11 +255,9 @@ export function SomiWorkspace({ employee }: SomiWorkspaceProps) {
                 <div className="form-group" style={{ marginTop: 12 }}>
                   <label className="form-label">Platform</label>
                   <select name="platform" className="input">
-                    <option value="youtube">YouTube</option>
                     <option value="instagram">Instagram</option>
                     <option value="facebook">Facebook</option>
                     <option value="linkedin">LinkedIn</option>
-                    <option value="tiktok">TikTok</option>
                   </select>
                 </div>
                 <div className="form-group" style={{ marginTop: 12 }}>

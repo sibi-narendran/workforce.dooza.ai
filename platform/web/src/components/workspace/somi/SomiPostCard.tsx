@@ -6,19 +6,15 @@ interface SomiPostCardProps {
 }
 
 const platformIcons: Record<Platform, string> = {
-  youtube: 'YT',
   instagram: 'IG',
   linkedin: 'in',
   facebook: 'f',
-  tiktok: 'TT',
 }
 
 const platformColors: Record<Platform, string> = {
-  youtube: '#FF0000',
   instagram: '#E4405F',
   linkedin: '#0A66C2',
   facebook: '#1877F2',
-  tiktok: '#000000',
 }
 
 export function SomiPostCard({ post, onClick }: SomiPostCardProps) {

@@ -4,7 +4,7 @@
 
 ## Setup Conversation
 
-1. **Connect accounts** — Ask which platforms to connect (LinkedIn, Facebook, Instagram, X)
+1. **Connect accounts** — Ask which platforms to connect (LinkedIn, Facebook, Instagram)
 2. **Brand assets** — Ask for logo, brand colors, fonts
 3. **Brand voice** — How should posts sound? Professional? Casual? Playful?
 4. **Approval flow** — Confirm: nothing publishes without explicit approval

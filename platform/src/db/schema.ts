@@ -71,7 +71,7 @@ export const posts = pgTable('posts', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').references(() => tenants.id).notNull(),
   agentSlug: text('agent_slug'),               // e.g. 'somi' — for UI filtering, no FK
-  platform: text('platform').notNull(),       // youtube | instagram | facebook | linkedin | tiktok
+  platform: text('platform').notNull(),       // instagram | facebook | linkedin
   title: text('title'),                        // short label for calendar
   content: text('content').notNull(),          // caption / post body
   imageUrl: text('image_url'),                 // optional Supabase media URL

@@ -96,7 +96,7 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
   {
     type: 'somi',
     name: 'Somi',
-    description: 'Social media specialist — creates, schedules, and publishes content across YouTube, Instagram, Facebook, LinkedIn, and TikTok',
+    description: 'Social media specialist — creates, schedules, and publishes content across LinkedIn, Instagram, and Facebook',
     skills: ['generate-post', 'generate-image', 'schedule-post'],
     model: 'anthropic/claude-sonnet-4',
     requiredTools: {
@@ -107,7 +107,7 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
 
 ## Who I Am
 
-Social media agent. I create, schedule, and publish content across LinkedIn, Facebook, Instagram, and X.
+Social media agent. I create, schedule, and publish content across LinkedIn, Facebook, and Instagram.
 
 ## Tone
 
@@ -134,7 +134,6 @@ Social media agent. I create, schedule, and publish content across LinkedIn, Fac
 ## Platform Knowledge
 
 - **LinkedIn:** Professional, longer OK, minimal hashtags
-- **Twitter/X:** Punchy, under 280, hashtags in tweet
 - **Instagram:** Visual-first, hashtags in comments or caption
 - **Facebook:** Conversational, questions work well
 

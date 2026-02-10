@@ -85,28 +85,7 @@ const SOCIAL_PLATFORMS: Record<string, SocialPlatformConfig> = {
     requiresImage: true,
     validate: (p) => (!p.imageUrl ? 'Instagram requires an image' : null),
   },
-  tiktok: {
-    providerSlug: 'tiktok',
-    steps: [
-      {
-        action: 'TIKTOK_POST_PHOTO',
-        buildParams: (p) => ({
-          photo_images: [p.imageUrl],
-          photo_cover_index: 0,
-          description: p.content.slice(0, 2200),
-          privacy_level: 'SELF_ONLY',
-          post_mode: 'DIRECT_POST',
-        }),
-      },
-    ],
-    maxContentLength: 2200,
-    requiresImage: true,
-    validate: (p) => (!p.imageUrl ? 'TikTok photo posts require an image' : null),
-  },
 }
-
-// Platforms excluded for now (video upload requires local file path)
-const UNSUPPORTED_PLATFORMS = new Set(['youtube'])
 
 export function getProviderSlugForPlatform(platform: string): string | null {
   return SOCIAL_PLATFORMS[platform]?.providerSlug ?? null
@@ -120,9 +99,6 @@ export function validatePostForPlatform(
   platform: string,
   post: { content: string; imageUrl?: string | null }
 ): string | null {
-  if (UNSUPPORTED_PLATFORMS.has(platform)) {
-    return `Publishing to ${platform} is not yet supported`
-  }
   const config = SOCIAL_PLATFORMS[platform]
   if (!config) {
     return `Unknown platform: ${platform}`

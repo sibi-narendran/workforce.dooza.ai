@@ -29,7 +29,7 @@ This skill dispatches to the `save_post` tool (provided by the `api-tools` plugi
 
 | Param | Required | Description |
 |-------|----------|-------------|
-| `platform` | Yes | `youtube`, `instagram`, `facebook`, `linkedin`, or `tiktok` |
+| `platform` | Yes | `instagram`, `facebook`, or `linkedin` |
 | `content` | Yes | The post caption/body text |
 | `title` | No | Short label for the calendar (defaults to first ~40 chars of content) |
 | `image_url` | No | Public URL from `generate_image` |
@@ -45,8 +45,6 @@ If the user doesn't specify a time, suggest these as defaults:
 | LinkedIn | Tue–Thu 13:00–15:00 |
 | Instagram | Mon–Fri 11:00–13:00 |
 | Facebook | Tue–Thu 09:00–12:00 |
-| YouTube | Fri–Sun 15:00–18:00 |
-| TikTok | Tue–Thu 19:00–21:00 |
 
 ## Integration with generate-image
 
