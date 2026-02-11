@@ -16,7 +16,8 @@ User asks to optimize content, improve SEO, review a page, audit an article, or 
 
 1. **Read the content** provided by the user
 2. **Check target keyword** — ask if not provided
-3. **Analyze on-page factors:**
+3. **Run `pagespeed_audit`** on the URL if provided — check performance + SEO scores
+4. **Analyze on-page factors:**
    - Title tag (50-60 chars, keyword near front)
    - Meta description (150-160 chars, compelling, keyword included)
    - H1 tag (unique, includes primary keyword)
@@ -27,7 +28,7 @@ User asks to optimize content, improve SEO, review a page, audit an article, or 
    - Content length vs. competitors
    - Readability (short paragraphs, bullet points, clear language)
    - E-E-A-T signals (experience, expertise, authority, trust)
-4. **Score and prioritize** recommendations
+5. **Score and prioritize** recommendations
 
 ## Output Format
 

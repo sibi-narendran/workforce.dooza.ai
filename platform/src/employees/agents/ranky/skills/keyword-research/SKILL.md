@@ -21,10 +21,11 @@ User asks to find keywords, research search terms, identify opportunities, or pl
 ## Process
 
 1. **Understand the seed topic** or page to optimize
-2. **Identify search intent** — informational, navigational, transactional, commercial
-3. **Generate keyword clusters** — primary, secondary, long-tail, related
-4. **Assess difficulty** — based on topic competitiveness (low/medium/high)
-5. **Prioritize** — balance volume, difficulty, and relevance
+2. **Use `google_suggest`** to get real keyword ideas from Google Autocomplete
+3. **Identify search intent** — informational, navigational, transactional, commercial
+4. **Generate keyword clusters** — primary, secondary, long-tail, related
+5. **Assess difficulty** — based on topic competitiveness (low/medium/high)
+6. **Prioritize** — balance volume, difficulty, and relevance
 
 ## Output Format
 

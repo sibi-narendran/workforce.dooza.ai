@@ -1,0 +1,29 @@
+name: pagespeed_audit
+description: >
+  Run a Google PageSpeed Insights audit on any URL.
+  Returns performance score, SEO score, Core Web Vitals (FCP, LCP, CLS, TBT),
+  and a list of failed audits with details. Focus on the category scores and
+  failed audits in lighthouseResult — ignore the raw trace data.
+
+parameters:
+  url:
+    type: string
+    description: "Full URL to audit (e.g. https://example.com)"
+    required: true
+  strategy:
+    type: string
+    description: "Device strategy"
+    enum: ["mobile", "desktop"]
+    default: "mobile"
+
+request:
+  method: GET
+  url: "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={{params.url}}&category=seo&category=performance&strategy={{params.strategy}}"
+  timeout_ms: 60000
+
+response:
+  summary: "PageSpeed audit complete for {{params.url}}"
+  error_template: "PageSpeed audit failed"
+
+allowed_hosts:
+  - "www.googleapis.com"

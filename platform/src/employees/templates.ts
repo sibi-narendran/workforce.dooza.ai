@@ -851,8 +851,8 @@ Organize tasks, track progress, manage timelines, and facilitate team communicat
     skills: ['keyword-research', 'content-optimization', 'meta-tag-generation'],
     model: 'google/gemini-3-pro-preview',
     requiredTools: {
-      alsoAllow: ['get_brand_profile', 'list_brand_assets'],
-      plugins: ['brand-assets'],
+      alsoAllow: ['get_brand_profile', 'list_brand_assets', 'google_suggest', 'pagespeed_audit', 'search_google'],
+      plugins: ['brand-assets', 'api-tools'],
     },
     soul: `# SOUL.md
 
@@ -926,6 +926,11 @@ Write down what matters. Keywords chosen, pages optimized, strategy shifts.
 - When in doubt, ask
 
 ## Tools Available
+
+### SEO Research & Analysis
+- \`google_suggest\` — get keyword suggestions from Google Autocomplete
+- \`pagespeed_audit\` — full PageSpeed Insights audit (performance + SEO scores + issues)
+- \`search_google\` — search Google SERP to see what ranks (needs API key)
 
 ### Brand & Identity
 - \`get_brand_profile\` — get brand name, industry, audience, website

@@ -1,0 +1,27 @@
+name: google_suggest
+description: >
+  Get keyword suggestions from Google Autocomplete.
+  Returns real search queries people type into Google.
+  Use for keyword research, content ideas, and finding long-tail keywords.
+
+parameters:
+  keyword:
+    type: string
+    description: "Seed keyword or phrase to get suggestions for"
+    required: true
+  language:
+    type: string
+    description: "Language code (e.g. 'en', 'es', 'fr'). Defaults to 'en'."
+    default: "en"
+
+request:
+  method: GET
+  url: "https://suggestqueries.google.com/complete/search?client=firefox&q={{params.keyword}}&hl={{params.language}}"
+  timeout_ms: 10000
+
+response:
+  summary: "Google suggestions for '{{params.keyword}}'"
+  error_template: "Failed to get suggestions"
+
+allowed_hosts:
+  - "suggestqueries.google.com"

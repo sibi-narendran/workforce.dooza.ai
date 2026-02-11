@@ -82,6 +82,8 @@ module.exports = {
         DEFAULT_MODEL: platformEnv.DEFAULT_MODEL || 'google/gemini-3-pro-preview',
         SUPABASE_URL: platformEnv.SUPABASE_URL,
         SUPABASE_SERVICE_KEY: platformEnv.SUPABASE_SERVICE_KEY,
+        GOOGLE_API_KEY: platformEnv.GOOGLE_API_KEY || '',
+        GOOGLE_CSE_ID: platformEnv.GOOGLE_CSE_ID || '',
       },
       // Production settings
       instances: 1,
