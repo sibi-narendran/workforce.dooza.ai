@@ -11,6 +11,7 @@ import { eq, and } from 'drizzle-orm'
 import { tenantManager } from '../tenant/manager.js'
 import { getTemplate, EMPLOYEE_TEMPLATES, buildAgentToolsConfig } from './templates.js'
 import { updateAgentForTenant, agentTemplateExists } from './installer.js'
+import { env } from '../lib/env.js'
 
 
 /**
@@ -106,6 +107,18 @@ export async function syncAgentConfigForAllTenants(agentSlug: string): Promise<{
       // Fix sandbox.workspaceRoot to match current TENANT_DATA_DIR
       if (config.agents.defaults?.sandbox) {
         config.agents.defaults.sandbox.workspaceRoot = tenantManager.getTenantDir(tenantId)
+      }
+
+      // Propagate DEFAULT_MODEL to tenant config (single source of truth)
+      const model = env.DEFAULT_MODEL.startsWith('openrouter/')
+        ? env.DEFAULT_MODEL
+        : `openrouter/${env.DEFAULT_MODEL}`
+      if (!config.agents.defaults) {
+        config.agents.defaults = { model: { primary: model } }
+      } else if (!config.agents.defaults.model) {
+        config.agents.defaults.model = { primary: model }
+      } else {
+        config.agents.defaults.model.primary = model
       }
 
       await tenantManager.saveClawdbotConfig(tenantId, config)

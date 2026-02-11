@@ -79,7 +79,7 @@ module.exports = {
         TENANT_DATA_DIR: TENANT_DATA_DIR,
         OPENCLAW_GATEWAY_TOKEN: platformEnv.CLAWDBOT_HOOK_TOKEN,
         OPENROUTER_API_KEY: platformEnv.OPENROUTER_API_KEY,
-        DEFAULT_MODEL: platformEnv.DEFAULT_MODEL || 'google/gemini-2.0-flash-001',
+        DEFAULT_MODEL: platformEnv.DEFAULT_MODEL || 'google/gemini-3-pro-preview',
         SUPABASE_URL: platformEnv.SUPABASE_URL,
         SUPABASE_SERVICE_KEY: platformEnv.SUPABASE_SERVICE_KEY,
       },

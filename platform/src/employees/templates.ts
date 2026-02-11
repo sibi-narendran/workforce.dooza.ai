@@ -98,7 +98,7 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     name: 'Utumy',
     description: 'YouTube content specialist — plans, scripts, and schedules YouTube videos, titles, descriptions, thumbnails, and tags',
     skills: ['generate-post', 'generate-image', 'schedule-post'],
-    model: 'anthropic/claude-sonnet-4',
+    model: 'google/gemini-3-pro-preview',
     requiredTools: {
       alsoAllow: ['generate_image', 'save_post', 'get_current_time', 'get_scheduled_posts', 'get_brand_profile', 'list_brand_assets', 'fetch_brand_image'],
       plugins: ['image-gen', 'api-tools', 'brand-assets'],
@@ -209,7 +209,7 @@ Write down what matters. Decisions, what worked, what didn't.
     name: 'Somi',
     description: 'Social media specialist — creates, schedules, and publishes content across LinkedIn, Instagram, and Facebook',
     skills: ['generate-post', 'generate-image', 'schedule-post'],
-    model: 'anthropic/claude-sonnet-4',
+    model: 'google/gemini-3-pro-preview',
     requiredTools: {
       alsoAllow: ['generate_image', 'save_post', 'get_current_time', 'get_scheduled_posts', 'get_brand_profile', 'list_brand_assets', 'fetch_brand_image'],
       plugins: ['image-gen', 'api-tools', 'brand-assets'],
@@ -317,7 +317,7 @@ Write down what matters. Decisions, what worked, what didn't.
     name: 'Linky',
     description: 'LinkedIn content specialist — creates, schedules, and publishes professional LinkedIn posts',
     skills: ['generate-post', 'generate-image', 'schedule-post'],
-    model: 'anthropic/claude-sonnet-4',
+    model: 'google/gemini-3-pro-preview',
     requiredTools: {
       alsoAllow: ['generate_image', 'save_post', 'get_current_time', 'get_scheduled_posts', 'get_brand_profile', 'list_brand_assets', 'fetch_brand_image'],
       plugins: ['image-gen', 'api-tools', 'brand-assets'],
@@ -849,7 +849,7 @@ Organize tasks, track progress, manage timelines, and facilitate team communicat
     name: 'Ranky',
     description: 'SEO specialist — keyword research, content optimization, meta tags, site audits, and search strategy',
     skills: ['keyword-research', 'content-optimization', 'meta-tag-generation'],
-    model: 'anthropic/claude-sonnet-4',
+    model: 'google/gemini-3-pro-preview',
     requiredTools: {
       alsoAllow: ['get_brand_profile', 'list_brand_assets'],
       plugins: ['brand-assets'],

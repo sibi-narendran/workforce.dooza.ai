@@ -10,7 +10,7 @@ export const agentLibrary = pgTable('agent_library', {
   emoji: text('emoji'),
   gradient: text('gradient'), // CSS gradient for avatar
   category: text('category').default('assistant'), // 'assistant', 'specialist', 'support', 'creative'
-  defaultModel: text('default_model').default('openrouter/anthropic/claude-sonnet-4'),
+  defaultModel: text('default_model').default('openrouter/google/gemini-3-pro-preview'),
   identityPrompt: text('identity_prompt'), // System prompt / personality
   skills: text('skills').array(), // Available skills/tools
   isPublic: boolean('is_public').default(true), // Visible in library

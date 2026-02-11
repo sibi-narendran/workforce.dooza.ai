@@ -60,7 +60,7 @@ const PLATFORM_AGENTS = [
     emoji: '📺',
     gradient: AGENT_GRADIENTS['utumy'],
     category: 'social-media',
-    defaultModel: 'anthropic/claude-sonnet-4',
+    defaultModel: 'google/gemini-3-pro-preview',
     skills: [
       'generate-post',
       'generate-image',
@@ -93,7 +93,7 @@ YouTube knowledge:
     emoji: '📱',
     gradient: AGENT_GRADIENTS['somi'],
     category: 'social-media',
-    defaultModel: 'anthropic/claude-sonnet-4',
+    defaultModel: 'google/gemini-3-pro-preview',
     skills: [
       'generate-post',
       'adapt-content',
@@ -135,7 +135,7 @@ Platform knowledge:
     emoji: '💼',
     gradient: AGENT_GRADIENTS['linky'],
     category: 'social-media',
-    defaultModel: 'anthropic/claude-sonnet-4',
+    defaultModel: 'google/gemini-3-pro-preview',
     skills: [
       'generate-post',
       'generate-image',
@@ -168,7 +168,7 @@ LinkedIn expertise:
     emoji: '🔍',
     gradient: AGENT_GRADIENTS['ranky'],
     category: 'seo',
-    defaultModel: 'anthropic/claude-sonnet-4',
+    defaultModel: 'google/gemini-3-pro-preview',
     skills: [
       'keyword-research',
       'content-optimization',
@@ -207,7 +207,7 @@ async function createTables() {
       emoji TEXT,
       gradient TEXT,
       category TEXT DEFAULT 'assistant',
-      default_model TEXT DEFAULT 'openrouter/anthropic/claude-sonnet-4',
+      default_model TEXT DEFAULT 'openrouter/google/gemini-3-pro-preview',
       identity_prompt TEXT,
       skills TEXT[],
       is_public BOOLEAN DEFAULT true,
@@ -273,7 +273,7 @@ async function seedAgents() {
       emoji: identity.emoji || '🤖',
       gradient: AGENT_GRADIENTS[agentId] || 'linear-gradient(135deg, #6b7280, #4b5563)',
       category: AGENT_CATEGORIES[agentId] || 'assistant',
-      defaultModel: agent.model || 'openrouter/anthropic/claude-sonnet-4',
+      defaultModel: agent.model || 'openrouter/google/gemini-3-pro-preview',
       identityPrompt: null, // Could extract from agent config if available
       skills: [],
       isPublic: true,
