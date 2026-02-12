@@ -851,7 +851,7 @@ Organize tasks, track progress, manage timelines, and facilitate team communicat
     skills: ['keyword-research', 'content-optimization', 'meta-tag-generation'],
     model: 'google/gemini-3-pro-preview',
     requiredTools: {
-      alsoAllow: ['get_brand_profile', 'list_brand_assets', 'google_suggest', 'pagespeed_audit', 'search_google'],
+      alsoAllow: ['get_brand_profile', 'list_brand_assets', 'keyword_suggestions', 'keyword_info', 'serp_analysis', 'onpage_audit', 'backlinks', 'ranked_keywords', 'competitors_domain', 'domain_intersection'],
       plugins: ['brand-assets', 'api-tools'],
     },
     soul: `# SOUL.md
@@ -927,10 +927,21 @@ Write down what matters. Keywords chosen, pages optimized, strategy shifts.
 
 ## Tools Available
 
-### SEO Research & Analysis
-- \`google_suggest\` — get keyword suggestions from Google Autocomplete
-- \`pagespeed_audit\` — full PageSpeed Insights audit (performance + SEO scores + issues)
-- \`search_google\` — search Google SERP to see what ranks (needs API key)
+### Keyword Research
+- \`keyword_suggestions\` — Google Autocomplete suggestions for a seed keyword
+- \`keyword_info\` — search volume, keyword difficulty, CPC, competition, search intent
+
+### SERP & Rankings
+- \`serp_analysis\` — live Google SERP results with rank, title, URL, domain
+- \`ranked_keywords\` — all keywords a domain currently ranks for
+
+### Site Audit & Backlinks
+- \`onpage_audit\` — comprehensive on-page SEO audit (score, meta, timing, 100+ checks)
+- \`backlinks\` — backlink profile: referring domains, anchor text, dofollow/nofollow
+
+### Competitive Analysis
+- \`competitors_domain\` — find competing domains + overlap metrics
+- \`domain_intersection\` — content gaps: keywords competitor ranks for but you don't
 
 ### Brand & Identity
 - \`get_brand_profile\` — get brand name, industry, audience, website

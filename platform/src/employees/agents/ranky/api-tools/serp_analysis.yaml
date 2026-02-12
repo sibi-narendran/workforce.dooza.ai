@@ -1,0 +1,53 @@
+name: serp_analysis
+description: >
+  Analyze Google SERP for a keyword. Returns organic results with rank position,
+  title, URL, description, and domain. Use for competitor analysis and SERP audits.
+
+parameters:
+  keyword:
+    type: string
+    required: true
+    description: "Search query to check"
+  location_code:
+    type: integer
+    default: 2840
+    description: "Location (2840=US, 2826=UK, 2356=IN)"
+  language_code:
+    type: string
+    default: "en"
+    description: "Language code"
+  depth:
+    type: integer
+    default: 10
+    description: "Number of results (max 100)"
+  device:
+    type: string
+    default: "desktop"
+    enum: ["desktop", "mobile"]
+    description: "Device type"
+
+request:
+  method: POST
+  url: "https://api.dataforseo.com/v3/serp/google/organic/live/advanced"
+  headers:
+    Authorization: "Basic {{env.DATAFORSEO_AUTH}}"
+    Content-Type: "application/json"
+  body:
+    type: json
+    content:
+      - keyword: "{{params.keyword}}"
+        location_code: "{{params.location_code}}"
+        language_code: "{{params.language_code}}"
+        depth: "{{params.depth}}"
+        device: "{{params.device}}"
+  timeout_ms: 30000
+
+response:
+  summary: "SERP analysis for '{{params.keyword}}'"
+  error_template: "Failed to analyze SERP"
+
+requires_env:
+  - DATAFORSEO_AUTH
+
+allowed_hosts:
+  - "api.dataforseo.com"

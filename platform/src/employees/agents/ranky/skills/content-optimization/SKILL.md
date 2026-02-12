@@ -16,7 +16,7 @@ User asks to optimize content, improve SEO, review a page, audit an article, or 
 
 1. **Read the content** provided by the user
 2. **Check target keyword** — ask if not provided
-3. **Run `pagespeed_audit`** on the URL if provided — check performance + SEO scores
+3. **Run `onpage_audit`** on the URL if provided — check onpage_score, meta tags, timing, 100+ SEO checks
 4. **Analyze on-page factors:**
    - Title tag (50-60 chars, keyword near front)
    - Meta description (150-160 chars, compelling, keyword included)

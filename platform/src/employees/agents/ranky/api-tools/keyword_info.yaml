@@ -1,0 +1,44 @@
+name: keyword_info
+description: >
+  Get search volume, keyword difficulty, CPC, competition level, and search intent
+  for a keyword. Essential for prioritizing which keywords to target.
+  Note: null or empty items means no data exists for that keyword — it is too new or niche.
+
+parameters:
+  keyword:
+    type: string
+    required: true
+    description: "Keyword to analyze (e.g. 'seo tools')"
+  location_code:
+    type: integer
+    default: 2840
+    description: "Location (2840=US, 2826=UK, 2356=IN)"
+  language_code:
+    type: string
+    default: "en"
+    description: "Language code"
+
+request:
+  method: POST
+  url: "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_overview/live"
+  headers:
+    Authorization: "Basic {{env.DATAFORSEO_AUTH}}"
+    Content-Type: "application/json"
+  body:
+    type: json
+    content:
+      - keywords:
+          - "{{params.keyword}}"
+        location_code: "{{params.location_code}}"
+        language_code: "{{params.language_code}}"
+  timeout_ms: 30000
+
+response:
+  summary: "Keyword info for '{{params.keyword}}'"
+  error_template: "Failed to get keyword info"
+
+requires_env:
+  - DATAFORSEO_AUTH
+
+allowed_hosts:
+  - "api.dataforseo.com"

@@ -1,0 +1,34 @@
+name: onpage_audit
+description: >
+  Run comprehensive on-page SEO audit on any URL. Returns onpage_score (0-100),
+  100+ SEO checks, page timing, meta tags, content analysis, mobile-friendliness.
+
+parameters:
+  url:
+    type: string
+    required: true
+    description: "Full URL to audit (e.g. https://example.com)"
+
+request:
+  method: POST
+  url: "https://api.dataforseo.com/v3/on_page/instant_pages"
+  headers:
+    Authorization: "Basic {{env.DATAFORSEO_AUTH}}"
+    Content-Type: "application/json"
+  body:
+    type: json
+    content:
+      - url: "{{params.url}}"
+        enable_javascript: true
+        enable_browser_rendering: true
+  timeout_ms: 60000
+
+response:
+  summary: "On-page SEO audit for {{params.url}}"
+  error_template: "On-page audit failed"
+
+requires_env:
+  - DATAFORSEO_AUTH
+
+allowed_hosts:
+  - "api.dataforseo.com"

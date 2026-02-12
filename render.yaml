@@ -34,9 +34,7 @@ services:
         sync: false
       - key: COMPOSIO_API_KEY
         sync: false
-      - key: GOOGLE_API_KEY
-        sync: false
-      - key: GOOGLE_CSE_ID
+      - key: DATAFORSEO_AUTH
         sync: false
       - key: DEFAULT_MODEL
         value: google/gemini-3-pro-preview

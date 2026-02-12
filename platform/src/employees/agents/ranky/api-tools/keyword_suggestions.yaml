@@ -1,0 +1,43 @@
+name: keyword_suggestions
+description: >
+  Get keyword suggestions from Google Autocomplete via DataForSEO.
+  Returns ranked autocomplete suggestions people type into Google.
+  Use for keyword research, content ideas, and finding long-tail keywords.
+
+parameters:
+  keyword:
+    type: string
+    required: true
+    description: "Seed keyword"
+  location_code:
+    type: integer
+    default: 2840
+    description: "Location (2840=US, 2826=UK, 2356=IN)"
+  language_code:
+    type: string
+    default: "en"
+    description: "Language code"
+
+request:
+  method: POST
+  url: "https://api.dataforseo.com/v3/serp/google/autocomplete/live/advanced"
+  headers:
+    Authorization: "Basic {{env.DATAFORSEO_AUTH}}"
+    Content-Type: "application/json"
+  body:
+    type: json
+    content:
+      - keyword: "{{params.keyword}}"
+        location_code: "{{params.location_code}}"
+        language_code: "{{params.language_code}}"
+  timeout_ms: 30000
+
+response:
+  summary: "Keyword suggestions for '{{params.keyword}}'"
+  error_template: "Failed to get keyword suggestions"
+
+requires_env:
+  - DATAFORSEO_AUTH
+
+allowed_hosts:
+  - "api.dataforseo.com"

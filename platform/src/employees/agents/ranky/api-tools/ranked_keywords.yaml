@@ -1,0 +1,47 @@
+name: ranked_keywords
+description: >
+  Find all keywords a domain currently ranks for in Google. Shows position,
+  search volume, and estimated traffic. Use to audit existing rankings.
+
+parameters:
+  target:
+    type: string
+    required: true
+    description: "Domain (e.g. 'example.com')"
+  location_code:
+    type: integer
+    default: 2840
+    description: "Location (2840=US, 2826=UK, 2356=IN)"
+  language_code:
+    type: string
+    default: "en"
+    description: "Language code"
+  limit:
+    type: integer
+    default: 50
+    description: "Max results (1-1000)"
+
+request:
+  method: POST
+  url: "https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live"
+  headers:
+    Authorization: "Basic {{env.DATAFORSEO_AUTH}}"
+    Content-Type: "application/json"
+  body:
+    type: json
+    content:
+      - target: "{{params.target}}"
+        location_code: "{{params.location_code}}"
+        language_code: "{{params.language_code}}"
+        limit: "{{params.limit}}"
+  timeout_ms: 30000
+
+response:
+  summary: "Ranked keywords for '{{params.target}}'"
+  error_template: "Failed to get ranked keywords"
+
+requires_env:
+  - DATAFORSEO_AUTH
+
+allowed_hosts:
+  - "api.dataforseo.com"

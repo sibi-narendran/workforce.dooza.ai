@@ -1,0 +1,43 @@
+name: backlinks
+description: >
+  Get backlink profile for a domain. Returns referring domains, anchor text,
+  dofollow/nofollow, domain rank, first/last seen dates. Essential for link building strategy.
+
+parameters:
+  target:
+    type: string
+    required: true
+    description: "Domain to analyze (e.g. 'example.com', no https://)"
+  limit:
+    type: integer
+    default: 50
+    description: "Max backlinks to return (1-1000)"
+  mode:
+    type: string
+    default: "one_per_domain"
+    enum: ["as_is", "one_per_domain", "one_per_anchor"]
+    description: "Grouping mode"
+
+request:
+  method: POST
+  url: "https://api.dataforseo.com/v3/backlinks/backlinks/live"
+  headers:
+    Authorization: "Basic {{env.DATAFORSEO_AUTH}}"
+    Content-Type: "application/json"
+  body:
+    type: json
+    content:
+      - target: "{{params.target}}"
+        limit: "{{params.limit}}"
+        mode: "{{params.mode}}"
+  timeout_ms: 30000
+
+response:
+  summary: "Backlink profile for '{{params.target}}'"
+  error_template: "Failed to get backlinks"
+
+requires_env:
+  - DATAFORSEO_AUTH
+
+allowed_hosts:
+  - "api.dataforseo.com"

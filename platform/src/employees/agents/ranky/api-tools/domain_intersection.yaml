@@ -1,0 +1,53 @@
+name: domain_intersection
+description: >
+  Find content gaps between two domains. Shows keywords where competitor ranks but you don't.
+  Essential for content strategy — reveals exactly what topics you're missing.
+
+parameters:
+  target1:
+    type: string
+    required: true
+    description: "Your domain (e.g. 'yourdomain.com')"
+  target2:
+    type: string
+    required: true
+    description: "Competitor domain (e.g. 'competitor.com')"
+  location_code:
+    type: integer
+    default: 2840
+    description: "Location (2840=US, 2826=UK, 2356=IN)"
+  language_code:
+    type: string
+    default: "en"
+    description: "Language code"
+  limit:
+    type: integer
+    default: 50
+    description: "Max results (1-1000)"
+
+request:
+  method: POST
+  url: "https://api.dataforseo.com/v3/dataforseo_labs/google/domain_intersection/live"
+  headers:
+    Authorization: "Basic {{env.DATAFORSEO_AUTH}}"
+    Content-Type: "application/json"
+  body:
+    type: json
+    content:
+      - target1: "{{params.target1}}"
+        target2: "{{params.target2}}"
+        intersections: true
+        location_code: "{{params.location_code}}"
+        language_code: "{{params.language_code}}"
+        limit: "{{params.limit}}"
+  timeout_ms: 30000
+
+response:
+  summary: "Content gaps: '{{params.target1}}' vs '{{params.target2}}'"
+  error_template: "Failed to find domain intersection"
+
+requires_env:
+  - DATAFORSEO_AUTH
+
+allowed_hosts:
+  - "api.dataforseo.com"

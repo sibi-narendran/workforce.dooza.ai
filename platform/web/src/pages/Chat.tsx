@@ -8,6 +8,7 @@ import { RoutinesPanel } from '../components/RoutinesPanel'
 import { StreamingClient, sendStreamingChat, abortStreamingChat } from '../lib/streaming'
 import { useChatStore, useChatMessages, useStreamingContent, useIsStreaming } from '../lib/chat-store'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 /**
  * Pre-process content before markdown rendering:
@@ -46,7 +47,7 @@ function MarkdownContent({ content }: { content: string }) {
   if (!cleaned.trim()) return null
   return (
     <div className="chat-text">
-      <ReactMarkdown components={markdownComponents}>{cleaned}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleaned}</ReactMarkdown>
     </div>
   )
 }

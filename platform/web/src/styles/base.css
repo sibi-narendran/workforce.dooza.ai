@@ -1834,6 +1834,30 @@ button, input, textarea, select {
   margin: 1em 0;
 }
 
+.chat-text :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75em;
+  font-size: 13px;
+  overflow-x: auto;
+  display: block;
+}
+
+.chat-text :where(th, td) {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.chat-text :where(th) {
+  background: rgba(0, 0, 0, 0.08);
+  font-weight: 600;
+}
+
+.chat-text :where(tr:nth-child(even) td) {
+  background: rgba(0, 0, 0, 0.03);
+}
+
 /* Light theme overrides */
 :root[data-theme="light"] .chat-text :where(:not(pre) > code) {
   background: rgba(0, 0, 0, 0.08);

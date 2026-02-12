@@ -1,0 +1,47 @@
+name: competitors_domain
+description: >
+  Find competing domains for a target domain. Returns competitor domains ranked by
+  keyword overlap, avg position, and estimated traffic. Use to identify who you're up against.
+
+parameters:
+  target:
+    type: string
+    required: true
+    description: "Your domain (e.g. 'example.com')"
+  location_code:
+    type: integer
+    default: 2840
+    description: "Location (2840=US, 2826=UK, 2356=IN)"
+  language_code:
+    type: string
+    default: "en"
+    description: "Language code"
+  limit:
+    type: integer
+    default: 20
+    description: "Max competitors (1-1000)"
+
+request:
+  method: POST
+  url: "https://api.dataforseo.com/v3/dataforseo_labs/google/competitors_domain/live"
+  headers:
+    Authorization: "Basic {{env.DATAFORSEO_AUTH}}"
+    Content-Type: "application/json"
+  body:
+    type: json
+    content:
+      - target: "{{params.target}}"
+        location_code: "{{params.location_code}}"
+        language_code: "{{params.language_code}}"
+        limit: "{{params.limit}}"
+  timeout_ms: 30000
+
+response:
+  summary: "Competitors for '{{params.target}}'"
+  error_template: "Failed to find competitors"
+
+requires_env:
+  - DATAFORSEO_AUTH
+
+allowed_hosts:
+  - "api.dataforseo.com"
