@@ -155,6 +155,18 @@ export function Onboarding() {
     navigate('/library', { replace: true })
   }
 
+  const handleSkip = async () => {
+    // Save a minimal brand so OnboardingGate lets the user through
+    const minimal = { businessName: 'My Business', website: null }
+    try {
+      await brainApi.saveBrand(token, minimal as any)
+    } catch {
+      // Non-critical — still let them through
+    }
+    queryClient.setQueryData(['brand-check'], { brand: minimal })
+    navigate('/library', { replace: true })
+  }
+
   return (
     <div className="onboarding">
       {step === 'url-input' && <UrlInputStep
@@ -162,6 +174,7 @@ export function Onboarding() {
         setUrl={setUrl}
         error={error}
         onSubmit={handleSubmitUrl}
+        onSkip={handleSkip}
       />}
 
       {step === 'scanning' && <ScanningStep
@@ -181,12 +194,13 @@ export function Onboarding() {
 /* ─── Step Components ─── */
 
 function UrlInputStep({
-  url, setUrl, error, onSubmit,
+  url, setUrl, error, onSubmit, onSkip,
 }: {
   url: string
   setUrl: (v: string) => void
   error: string | null
   onSubmit: () => void
+  onSkip: () => void
 }) {
   return (
     <div className="onboarding-section">
@@ -213,6 +227,20 @@ function UrlInputStep({
           Build My Team
         </button>
       </div>
+      <button
+        onClick={onSkip}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: 'var(--muted)',
+          fontSize: 13,
+          cursor: 'pointer',
+          marginTop: 12,
+          padding: '4px 8px',
+        }}
+      >
+        I don't have a website yet — skip
+      </button>
     </div>
   )
 }

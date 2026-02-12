@@ -9,7 +9,7 @@ services:
       npm i -g pnpm@10 pm2 &&
       cd clawdbot && pnpm install && pnpm build && pnpm ui:build &&
       cd ../platform && pnpm install && pnpm build
-    startCommand: pm2-runtime ecosystem.config.cjs --only gateway,platform
+    startCommand: node platform/dist/presync.js && pm2-runtime ecosystem.config.cjs --only gateway,platform
     envVars:
       - key: PORT
         value: 3000
