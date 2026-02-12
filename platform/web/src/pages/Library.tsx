@@ -141,7 +141,9 @@ export function Library() {
     return <ErrorDisplay message={getErrorMessage(error)} onRetry={() => refetch()} />
   }
 
+  const CATEGORY_ORDER = ['social-media', 'seo', 'assistant', 'specialist', 'support', 'creative', 'other']
   const categories = [...new Set((agents ?? []).map(a => a.category || 'other'))]
+    .sort((a, b) => (CATEGORY_ORDER.indexOf(a) === -1 ? 999 : CATEGORY_ORDER.indexOf(a)) - (CATEGORY_ORDER.indexOf(b) === -1 ? 999 : CATEGORY_ORDER.indexOf(b)))
 
   return (
     <div
