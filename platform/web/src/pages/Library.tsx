@@ -147,6 +147,7 @@ export function Library() {
 
   return (
     <div
+      className="page-content"
       style={{
         padding: 32,
         height: '100%',

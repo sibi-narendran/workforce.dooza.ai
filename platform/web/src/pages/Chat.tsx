@@ -9,6 +9,8 @@ import { StreamingClient, sendStreamingChat, abortStreamingChat } from '../lib/s
 import { useChatStore, useChatMessages, useStreamingContent, useIsStreaming } from '../lib/chat-store'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeHighlight from 'rehype-highlight'
+import 'highlight.js/styles/github.css'
 
 /**
  * Pre-process content before markdown rendering:
@@ -40,6 +42,12 @@ const markdownComponents = {
       {children}
     </a>
   ),
+  // Scrollable table wrapper for mobile
+  table: ({ children, ...props }: React.TableHTMLAttributes<HTMLTableElement>) => (
+    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <table {...props}>{children}</table>
+    </div>
+  ),
 }
 
 function MarkdownContent({ content }: { content: string }) {
@@ -47,7 +55,7 @@ function MarkdownContent({ content }: { content: string }) {
   if (!cleaned.trim()) return null
   return (
     <div className="chat-text">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleaned}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={markdownComponents}>{cleaned}</ReactMarkdown>
     </div>
   )
 }
@@ -243,6 +251,7 @@ export function Chat() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
       <header
+        className="chat-page-header"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -310,6 +319,7 @@ export function Chat() {
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        className="chat-page-messages"
         style={{
           flex: 1,
           overflow: 'auto',
@@ -352,6 +362,7 @@ export function Chat() {
                 }}
               >
                 <div
+                  className="chat-bubble"
                   style={{
                     maxWidth: '70%',
                     padding: '12px 16px',
@@ -403,6 +414,7 @@ export function Chat() {
             {streamingContent && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                 <div
+                  className="chat-bubble"
                   style={{
                     maxWidth: '70%',
                     padding: '12px 16px',
@@ -461,6 +473,7 @@ export function Chat() {
 
       {/* Input */}
       <div
+        className="chat-page-input"
         style={{
           padding: 24,
           borderTop: '1px solid var(--border)',

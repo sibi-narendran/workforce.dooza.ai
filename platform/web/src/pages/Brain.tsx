@@ -298,7 +298,7 @@ export function Brain() {
   }
 
   return (
-    <div style={{ padding: 32, height: '100%', overflowY: 'auto', paddingBottom: hasChanges ? 100 : 32 }}>
+    <div className="page-content" style={{ padding: 32, height: '100%', overflowY: 'auto', paddingBottom: hasChanges ? 100 : 32 }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: 'var(--text-strong)' }}>
@@ -478,7 +478,7 @@ export function Brain() {
               Brand Details
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div className="brain-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
               {/* Business Name */}
               <div>
                 <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>
@@ -800,6 +800,7 @@ export function Brain() {
       {/* Floating Save Button */}
       {hasChanges && (
         <div
+          className="brain-save-bar"
           style={{
             position: 'fixed',
             bottom: 24,

@@ -188,6 +188,7 @@ export function Integrations() {
 
   return (
     <div
+      className="page-content"
       style={{
         padding: 32,
         height: '100%',

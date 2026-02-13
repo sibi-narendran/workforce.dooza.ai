@@ -54,7 +54,7 @@ export function EmployeeDetail() {
   }
 
   return (
-    <div style={{ padding: 32 }}>
+    <div className="page-content" style={{ padding: 32 }}>
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <Link
@@ -71,7 +71,7 @@ export function EmployeeDetail() {
           Back to Employees
         </Link>
 
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20 }}>
+        <div className="detail-header" style={{ display: 'flex', alignItems: 'flex-start', gap: 20 }}>
           <div
             style={{
               width: 64,
@@ -148,7 +148,7 @@ export function EmployeeDetail() {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+      <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
         {/* Main content */}
         <div>
           {/* Description */}

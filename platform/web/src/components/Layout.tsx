@@ -1,9 +1,13 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../lib/store'
 
 export function Layout() {
   const { user, tenant, clearAuth } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  const isChatPage = location.pathname.includes('/chat')
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
 
   const handleLogout = () => {
     clearAuth()
@@ -12,7 +16,53 @@ export function Layout() {
 
   return (
     <div className="app-shell">
-      {/* Sidebar */}
+      {/* Mobile header — hidden on desktop via CSS */}
+      <header className="mobile-header">
+        <div className="mobile-header__brand">
+          <img src="/logo.png" alt="Workforce" />
+          <span>Workforce</span>
+        </div>
+        <button
+          className="mobile-header__profile"
+          onClick={() => setShowProfileMenu(!showProfileMenu)}
+        >
+          {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+        </button>
+        {showProfileMenu && (
+          <>
+            <div
+              className="mobile-profile-menu__backdrop"
+              onClick={() => setShowProfileMenu(false)}
+            />
+            <div className="mobile-profile-menu">
+              <div className="mobile-profile-menu__name">
+                {user?.name || user?.email?.split('@')[0]}
+              </div>
+              <div className="mobile-profile-menu__tenant">
+                {tenant?.name}
+              </div>
+              <a
+                href="https://cal.com/sibinarendran/demo"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary"
+                style={{ width: '100%', fontSize: 13, padding: '8px 12px', textDecoration: 'none', marginBottom: 8 }}
+              >
+                Book Free Setup Call
+              </a>
+              <button
+                className="btn btn-ghost"
+                onClick={() => { clearAuth(); navigate('/login') }}
+                style={{ width: '100%', fontSize: 13, padding: '8px 12px' }}
+              >
+                Logout
+              </button>
+            </div>
+          </>
+        )}
+      </header>
+
+      {/* Sidebar — desktop only (hidden on mobile via CSS) */}
       <aside className="app-shell__sidebar">
         <div className="sidebar">
           {/* Logo */}
@@ -110,6 +160,40 @@ export function Layout() {
       <main className="app-shell__main">
         <Outlet />
       </main>
+
+      {/* Bottom tab bar — hidden on desktop via CSS, hidden on chat page */}
+      {!isChatPage && (
+        <nav className="mobile-tabs">
+          <NavLink
+            to="/employees"
+            className={({ isActive }) => `mobile-tabs__item ${isActive ? 'mobile-tabs__item--active' : ''}`}
+          >
+            <NavIcon name="people" />
+            <span>Employees</span>
+          </NavLink>
+          <NavLink
+            to="/library"
+            className={({ isActive }) => `mobile-tabs__item ${isActive ? 'mobile-tabs__item--active' : ''}`}
+          >
+            <NavIcon name="library" />
+            <span>Library</span>
+          </NavLink>
+          <NavLink
+            to="/integrations"
+            className={({ isActive }) => `mobile-tabs__item ${isActive ? 'mobile-tabs__item--active' : ''}`}
+          >
+            <NavIcon name="integrations" />
+            <span>Integrations</span>
+          </NavLink>
+          <NavLink
+            to="/brain"
+            className={({ isActive }) => `mobile-tabs__item ${isActive ? 'mobile-tabs__item--active' : ''}`}
+          >
+            <NavIcon name="brain" />
+            <span>Brain</span>
+          </NavLink>
+        </nav>
+      )}
     </div>
   )
 }

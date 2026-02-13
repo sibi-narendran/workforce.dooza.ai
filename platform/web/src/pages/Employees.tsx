@@ -19,9 +19,9 @@ export function Employees() {
   }
 
   return (
-    <div style={{ padding: 32, height: '100%', overflowY: 'auto' }}>
+    <div className="page-content" style={{ padding: 32, height: '100%', overflowY: 'auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="employees-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: 'var(--text-strong)' }}>
             AI Employees
